@@ -1,4 +1,3 @@
 build
 node_modules
 test/__pycache__
-package-lock.json
