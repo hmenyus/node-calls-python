@@ -32,7 +32,7 @@ sudo apt install python3-dev
 ```
 sudo apt install make
 sudo apt install g++
-sudo npm install -g node-gyp
+npm install -g node-gyp
 ```
 
 ### **Windows**: install [NodeJS](https://nodejs.org/en/download/) and [Python](https://www.python.org/downloads/)
