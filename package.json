@@ -1,0 +1,42 @@
+{
+  "name": "node-calls-python",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "This module lets you run python code inside node without spawning new processes",
+  "authors": [
+    "Menyhert Hegedus (hmenyus@gmail.com)"
+  ],
+  "keywords": [
+    "python",
+    "c++",
+    "v8",
+    "node",
+    "nodejs",
+    "node-js",
+    "napi"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hmenyus/node-calls-python.git"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/hmenyus/node-calls-python/blob/master/LICENSE"
+    }
+  ],
+  "files": [
+    "binding.gyp",
+    "src/",
+    "test/",
+    "scripts/"
+  ],
+  "main": "index.js",
+  "scripts": {
+    "start": "npm build .",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^24.9.0"
+  }
+}
