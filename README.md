@@ -1,7 +1,7 @@
 
 ![node-calls-python](https://github.com/hmenyus/node-calls-python/blob/master/logo.png)
 
-# node-calls-python - call Python from NodeJS directly without spawning processes
+# node-calls-python - call Python from NodeJS directly in-process without spawning processes
 
 ## Suitable for running your ML or deep learning models from Node directly
 
