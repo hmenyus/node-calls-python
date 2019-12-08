@@ -52,7 +52,7 @@ namespace nodecallspython
 
         ~PyInterpreter()
         {
-            if (!m_state)
+            if (m_state)
             {
                 PyEval_RestoreThread(m_state);
                 m_objs = {};
