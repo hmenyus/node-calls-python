@@ -64,7 +64,7 @@ namespace nodecallspython
 
         static void Destructor(napi_env env, void* nativeObject, void* finalize_hint)
         {
-            reinterpret_cast<Handler*>(nativeObject)->~Handler();
+            delete reinterpret_cast<Handler*>(nativeObject);
         }
     };
 
@@ -208,7 +208,7 @@ namespace nodecallspython
 
         static void Destructor(napi_env env, void* nativeObject, void* finalize_hint)
         {
-           reinterpret_cast<Python*>(nativeObject)->~Python();
+           delete reinterpret_cast<Python*>(nativeObject);
         }
 
         static napi_value callImpl(napi_env env, napi_callback_info info, bool func) 
