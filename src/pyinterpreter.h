@@ -33,7 +33,7 @@ namespace nodecallspython
         std::unordered_map<std::string, CPyObject> m_objs;
         static bool inited;
     public:
-        PyInterpreter()
+        PyInterpreter() : m_state(nullptr)
         {
             if (!inited)
             {
@@ -52,9 +52,12 @@ namespace nodecallspython
 
         ~PyInterpreter()
         {
-            PyEval_RestoreThread(m_state);
-            m_objs = {};
-            Py_Finalize();
+            if (!m_state)
+            {
+                PyEval_RestoreThread(m_state);
+                m_objs = {};
+                Py_Finalize();
+            }
         }
 
         CPyObject convert(napi_env env, const std::vector<napi_value>& args);
@@ -65,6 +68,8 @@ namespace nodecallspython
 
         std::string create(const std::string& handler, const std::string& name, CPyObject& args);
 
+        void release(const std::string& handler);
+        
         CPyObject call(const std::string& handler, const std::string& func, CPyObject& args);
     };
 }

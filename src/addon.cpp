@@ -48,6 +48,45 @@ namespace nodecallspython
         }
     };
 
+    class Handler
+    {
+        PyInterpreter* m_py;
+        std::string m_handler;
+    
+    public:
+        Handler(PyInterpreter* py, const std::string& handler) : m_py(py), m_handler(handler) {}
+
+        ~Handler()
+        {
+            GIL gil;
+            m_py->release(m_handler);
+        }
+
+        static void Destructor(napi_env env, void* nativeObject, void* finalize_hint)
+        {
+            reinterpret_cast<Handler*>(nativeObject)->~Handler();
+        }
+    };
+
+    template<class T>
+    napi_value createHandler(napi_env env, T* task)
+    {
+        napi_value key;
+        CHECKNULL(napi_create_string_utf8(env, "handler", NAPI_AUTO_LENGTH, &key));
+
+        napi_value handler;
+        CHECKNULL(napi_create_string_utf8(env, task->m_handler.c_str(), NAPI_AUTO_LENGTH, &handler));
+
+        napi_value result;
+        CHECKNULL(napi_create_object(env, &result));
+
+        CHECKNULL(napi_set_property(env, result, key, handler));
+
+        CHECKNULL(napi_add_finalizer(env, result, new Handler(task->m_py, task->m_handler), Handler::Destructor, nullptr, nullptr));
+
+        return result;
+    }
+
     static void ImportAsync(napi_env env, void* data)
     {
         auto task = static_cast<ImportTask*>(data);
@@ -76,8 +115,7 @@ namespace nodecallspython
         }
         else
         {
-            napi_value handler;
-            CHECK(napi_create_string_utf8(env, task->m_handler.c_str(), NAPI_AUTO_LENGTH, &handler));
+            auto handler = createHandler(env, task.get());
 
             napi_value callback;
             CHECK(napi_get_reference_value(env, task->m_callback, &callback));
@@ -105,7 +143,7 @@ namespace nodecallspython
             }
             else
             {
-                CHECK(napi_create_string_utf8(env, task->m_handler.c_str(), NAPI_AUTO_LENGTH, &args));
+                args = createHandler(env, task.get());
             }
 
             napi_value callback;
@@ -198,14 +236,21 @@ namespace nodecallspython
             napi_valuetype callbackT;
             CHECKNULL(napi_typeof(env, args[argc - 1], &callbackT));
 
-            if (handlerT == napi_string && funcT == napi_string && callbackT == napi_function)
+            if (handlerT == napi_object && funcT == napi_string && callbackT == napi_function)
             {
                 napi_value optname;
                 napi_create_string_utf8(env, "Python::import", NAPI_AUTO_LENGTH, &optname);
 
                 CallTask* task = new CallTask;
                 task->m_py = &(obj->getInterpreter());
-                task->m_handler = convertString(env, args[0]);
+
+                napi_value key;
+                CHECKNULL(napi_create_string_utf8(env, "handler", NAPI_AUTO_LENGTH, &key));
+
+                napi_value value;
+                CHECKNULL(napi_get_property(env, args[0], key, &value));
+
+                task->m_handler = convertString(env, value);
                 task->m_func = convertString(env, args[1]);
                 task->m_isfunc = func;
 

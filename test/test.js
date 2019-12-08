@@ -59,13 +59,15 @@ it("nodecallspython tests", () => {
         await expect(py.call(pymodule, "dump")).rejects.toEqual("Cannot call function");
         await expect(py.call(pymodule, "dump", "a")).rejects.toEqual("Cannot call function");
 
-        let pyobj = await py.create(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
+        let pyobj;
+        for (var i=0;i<10000;++i)
+            pyobj = await py.create(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
         let result = await expect(py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).resolves.toEqual([13.2, 61.5, 12.6, 49.2]);
 
         await expect(py.create(pymodule, "Calculator2")).rejects.toEqual("Cannot call function");
 
         await expect(py.import(path.join(__dirname, "error.py"))).rejects.toEqual("Cannot load module");
-        await expect(py.call("test", "error")).rejects.toEqual("Cannot call function");
-        await expect(py.create("test", "error")).rejects.toEqual("Cannot call function");
+        await expect(py.call(pymodule, "error")).rejects.toEqual("Cannot call function");
+        await expect(py.create(pymodule, "error")).rejects.toEqual("Cannot call function");
     });
 });

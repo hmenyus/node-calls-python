@@ -312,3 +312,8 @@ std::string PyInterpreter::create(const std::string& handler, const std::string&
 
     return std::string();
 }
+
+void PyInterpreter::release(const std::string& handler)
+{
+    m_objs.erase(handler);
+}
