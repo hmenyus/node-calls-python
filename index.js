@@ -19,6 +19,11 @@ class Interpreter
         }.bind(this));
     }
 
+    importSync(filename)
+    {
+        return this.py.importSync(filename);
+    }
+
     call(handler, func, ...args)
     {
         return new Promise(function(resolve, reject) {

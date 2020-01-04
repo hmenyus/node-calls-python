@@ -2,9 +2,10 @@ const nodecallspython = require("../");
 const path = require("path");
 
 let py = nodecallspython.interpreter;
+let pyfile = path.join(__dirname, "nodetest.py");
 
-it("nodecallspython tests", () => {    
-    py.import(path.join(__dirname, "nodetest.py")).then(async function(pymodule) {
+it("nodecallspython tests", () => {
+    py.import(pyfile).then(async function(pymodule) {
         await py.call(pymodule, "hello");
         await py.call(pymodule, "dump", "a", "b");
 
@@ -102,4 +103,10 @@ it("nodecallspython tests", () => {
         await expect(py.call(pymodule, "error")).rejects.toEqual("Cannot call function");
         await expect(py.create(pymodule, "error")).rejects.toEqual("Cannot call function");
     });
+
+});
+
+it("nodecallspython sync test", () => {
+    let module = py.importSync(pyfile);
+    expect(py.callSync(module, "concatenate", "aaa", "bbb")).toEqual("aaabbb");
 });

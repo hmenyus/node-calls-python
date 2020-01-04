@@ -197,6 +197,7 @@ namespace nodecallspython
             napi_property_descriptor properties[] = 
             {
                 DECLARE_NAPI_METHOD("import", import),
+                DECLARE_NAPI_METHOD("importSync", importSync),
                 DECLARE_NAPI_METHOD("call", call),
                 DECLARE_NAPI_METHOD("callSync", callSync),
                 DECLARE_NAPI_METHOD("create", newclass),
@@ -204,7 +205,7 @@ namespace nodecallspython
             };
 
             napi_value cons;
-            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 5, properties, &cons));
+            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 6, properties, &cons));
 
             CHECKNULL(napi_create_reference(env, cons, 1, &constructor));
 
@@ -338,7 +339,7 @@ namespace nodecallspython
                 else
                 {
                     auto newhandler = py.create(handler, func, args);
-                    result = createHandler(env, &py, newhandler);                    
+                    result = createHandler(env, &py, newhandler);
                 }
 
                 return result;
@@ -431,6 +432,52 @@ namespace nodecallspython
 
                 CHECKNULL(napi_create_async_work(env, args[1], optname, ImportAsync, ImportComplete, task, &task->m_work));
                 CHECKNULL(napi_queue_async_work(env, task->m_work));
+            }
+            else
+            {
+                napi_throw_error(env, "args", "Wrong type of arguments");
+            }
+
+            return nullptr;
+        }
+
+        static napi_value importSync(napi_env env, napi_callback_info info) 
+        {
+            napi_value jsthis;
+            size_t argc = 1;
+            napi_value args[1];
+            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
+
+            if (argc != 1)
+            {
+                napi_throw_error(env, "args", "Must have 1 arguments");
+                return nullptr;
+            }
+
+            Python* obj;
+            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
+
+            napi_valuetype valuetype;
+            CHECKNULL(napi_typeof(env, args[0], &valuetype));
+
+            if (valuetype == napi_string)
+            {
+                auto name = convertString(env, args[0]);
+                auto& py = obj->getInterpreter();
+
+                std::string handler;
+                {
+                    GIL gil;
+                    handler = py.import(name);
+                }
+
+                napi_value result;
+                if (handler.empty())
+                    CHECKNULL(napi_get_undefined(env, &result))
+                else
+                    result = createHandler(env, &py, handler);
+                
+                return result;
             }
             else
             {
