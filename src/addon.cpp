@@ -68,23 +68,28 @@ namespace nodecallspython
         }
     };
 
-    template<class T>
-    napi_value createHandler(napi_env env, T* task)
+    napi_value createHandler(napi_env env, PyInterpreter* py, const std::string& stringhandler)
     {
         napi_value key;
         CHECKNULL(napi_create_string_utf8(env, "handler", NAPI_AUTO_LENGTH, &key));
 
         napi_value handler;
-        CHECKNULL(napi_create_string_utf8(env, task->m_handler.c_str(), NAPI_AUTO_LENGTH, &handler));
+        CHECKNULL(napi_create_string_utf8(env, stringhandler.c_str(), NAPI_AUTO_LENGTH, &handler));
 
         napi_value result;
         CHECKNULL(napi_create_object(env, &result));
 
         CHECKNULL(napi_set_property(env, result, key, handler));
 
-        CHECKNULL(napi_add_finalizer(env, result, new Handler(task->m_py, task->m_handler), Handler::Destructor, nullptr, nullptr));
+        CHECKNULL(napi_add_finalizer(env, result, new Handler(py, stringhandler), Handler::Destructor, nullptr, nullptr));
 
         return result;
+    }
+
+    template<class T>
+    napi_value createHandler(napi_env env, T* task)
+    {
+        return createHandler(env, task->m_py, task->m_handler);
     }
 
     static void ImportAsync(napi_env env, void* data)
@@ -193,11 +198,13 @@ namespace nodecallspython
             {
                 DECLARE_NAPI_METHOD("import", import),
                 DECLARE_NAPI_METHOD("call", call),
-                DECLARE_NAPI_METHOD("create", newclass)
+                DECLARE_NAPI_METHOD("callSync", callSync),
+                DECLARE_NAPI_METHOD("create", newclass),
+                DECLARE_NAPI_METHOD("createSync", newclassSync)
             };
 
             napi_value cons;
-            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 3, properties, &cons));
+            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 5, properties, &cons));
 
             CHECKNULL(napi_create_reference(env, cons, 1, &constructor));
 
@@ -268,6 +275,73 @@ namespace nodecallspython
 
                 CHECKNULL(napi_create_async_work(env, args[1], optname, CallAsync, CallComplete, task, &task->m_work));
                 CHECKNULL(napi_queue_async_work(env, task->m_work));
+            }
+            else
+            {
+                napi_throw_error(env, "args", "Wrong type of arguments");
+            }
+
+            return nullptr;
+        }
+
+        static napi_value callImplSync(napi_env env, napi_callback_info info, bool isfunc) 
+        {
+            napi_value jsthis;
+            size_t argc = 100;
+            napi_value args[100];
+            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
+
+            if (argc < 2)
+            {
+                napi_throw_error(env, "args", "Must have at least 2 arguments");
+                return nullptr;
+            }
+
+            Python* obj;
+            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
+
+            napi_valuetype handlerT;
+            CHECKNULL(napi_typeof(env, args[0], &handlerT));
+
+            napi_valuetype funcT;
+            CHECKNULL(napi_typeof(env, args[1], &funcT));
+
+            if (handlerT == napi_object && funcT == napi_string)
+            {
+                napi_value key;
+                CHECKNULL(napi_create_string_utf8(env, "handler", NAPI_AUTO_LENGTH, &key));
+
+                napi_value value;
+                CHECKNULL(napi_get_property(env, args[0], key, &value));
+
+                auto handler = convertString(env, value);
+                auto func = convertString(env, args[1]);
+
+                std::vector<napi_value> napiargs;
+                napiargs.reserve(argc - 2);
+                for (auto i=2u;i<argc;++i)
+                    napiargs.push_back(args[i]);
+
+                GIL gil;
+                auto& py = obj->getInterpreter();
+                auto args = py.convert(env, napiargs);
+
+                napi_value result;
+                if (isfunc)
+                {
+                    auto pyres = py.call(handler, func, args);
+                    if (pyres)
+                        result = py.convert(env, *pyres);
+                    else
+                        CHECKNULL(napi_get_undefined(env, &result));
+                }
+                else
+                {
+                    auto newhandler = py.create(handler, func, args);
+                    result = createHandler(env, &py, newhandler);                    
+                }
+
+                return result;
             }
             else
             {
@@ -380,9 +454,19 @@ namespace nodecallspython
             return callImpl(env, info, true); 
         }
 
+        static napi_value callSync(napi_env env, napi_callback_info info) 
+        {
+            return callImplSync(env, info, true); 
+        }
+
         static napi_value newclass(napi_env env, napi_callback_info info) 
         {
             return callImpl(env, info, false); 
+        }
+
+        static napi_value newclassSync(napi_env env, napi_callback_info info) 
+        {
+            return callImplSync(env, info, false); 
         }
     };
 

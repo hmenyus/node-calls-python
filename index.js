@@ -31,6 +31,11 @@ class Interpreter
         }.bind(this));
     }
 
+    callSync(handler, func, ...args)
+    {
+        return this.py.callSync(handler, func, ...args);
+    }
+
     create(handler, func, ...args)
     {
         return new Promise(function(resolve, reject) {
@@ -41,6 +46,11 @@ class Interpreter
                     resolve(result);
             });
         }.bind(this));
+    }
+
+    createSync(handler, func, ...args)
+    {
+        return this.py.createSync(handler, func, ...args);
     }
 }
 
