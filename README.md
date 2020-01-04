@@ -66,7 +66,7 @@ py.import("test.py").then(async function(pymodule) {
 });
 ```
 
-Or to call this function by using the sync verion
+Or to call this function by using the synchronous version
 ```javascript
 const nodecallspython = require("node-calls-python");
 
