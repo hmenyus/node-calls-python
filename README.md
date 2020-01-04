@@ -66,6 +66,18 @@ py.import("test.py").then(async function(pymodule) {
 });
 ```
 
+Or to call this function by using the synchronous version
+```javascript
+const nodecallspython = require("node-calls-python");
+
+let py = nodecallspython.interpreter;
+
+py.import("test.py").then(async function(pymodule) {
+    let result = py.callSync(pymodule, "multiple", [1, 2, 3, 4], [2, 3, 4, 5]);
+    console.log(result);
+});
+```
+
 ### Creating python objects
 Let's say you have the following python code in **test.py**
 ```python
@@ -90,6 +102,18 @@ let py = nodecallspython.interpreter;
 py.import("test.py").then(async function(pymodule) {
     let pyobj = await py.create(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
     let result = await py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]);
+});
+```
+
+Or to instance the class synchronously and directly in Node
+```javascript
+const nodecallspython = require("node-calls-python");
+
+let py = nodecallspython.interpreter;
+
+py.import("test.py").then(async function(pymodule) {
+    let pyobj = py.createSync(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
+    let result = await py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]); // you can use ayns version (call) as well
 });
 ```
 
