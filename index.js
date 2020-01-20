@@ -57,6 +57,11 @@ class Interpreter
     {
         return this.py.createSync(handler, func, ...args);
     }
+
+    fixlink(filename)
+    {
+        return this.py.fixlink(filename);
+    }
 }
 
 let py = new Interpreter();

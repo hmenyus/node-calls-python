@@ -2,6 +2,7 @@
 #include <memory>
 #include <sstream>
 #include <iostream>
+#include <dlfcn.h>
 #include "cpyobject.h"
 #include "pyinterpreter.h"
 
@@ -201,11 +202,12 @@ namespace nodecallspython
                 DECLARE_NAPI_METHOD("call", call),
                 DECLARE_NAPI_METHOD("callSync", callSync),
                 DECLARE_NAPI_METHOD("create", newclass),
-                DECLARE_NAPI_METHOD("createSync", newclassSync)
+                DECLARE_NAPI_METHOD("createSync", newclassSync),
+                DECLARE_NAPI_METHOD("fixlink", fixlink)
             };
 
             napi_value cons;
-            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 6, properties, &cons));
+            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 7, properties, &cons));
 
             CHECKNULL(napi_create_reference(env, cons, 1, &constructor));
 
@@ -514,6 +516,40 @@ namespace nodecallspython
         static napi_value newclassSync(napi_env env, napi_callback_info info) 
         {
             return callImplSync(env, info, false); 
+        }
+
+        static napi_value fixlink(napi_env env, napi_callback_info info)
+        {
+            napi_value jsthis;
+            size_t argc = 1;
+            napi_value args[1];
+            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
+
+            if (argc != 1)
+            {
+                napi_throw_error(env, "args", "Must have 1 arguments");
+                return nullptr;
+            }
+
+            Python* obj;
+            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
+
+            napi_valuetype valuetype;
+            CHECKNULL(napi_typeof(env, args[0], &valuetype));
+
+            if (valuetype == napi_string)
+            {
+                auto filename = convertString(env, args[0]);
+                dlopen(filename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+                
+                return nullptr;
+            }
+            else
+            {
+                napi_throw_error(env, "args", "Wrong type of arguments");
+            }
+
+            return nullptr;
         }
     };
 

@@ -53,7 +53,30 @@ namespace
         {
             double d = 0.0;
             CHECK(napi_get_value_double(env, arg, &d));
-            return PyFloat_FromDouble(d);
+            if ((double) ((int) d) == d)
+            {
+                //handle integers
+                int32_t i = 0;
+                auto res = napi_get_value_int32(env, arg, &i);
+                if (res != napi_ok)
+                {
+                    uint32_t i = 0;
+                    res = napi_get_value_uint32(env, arg, &i);
+                    if (res != napi_ok)
+                    {
+                        int64_t i = 0;
+                        res = napi_get_value_int64(env, arg, &i);
+                        if (res == napi_ok)
+                            return PyLong_FromLong(i);
+                    }
+                    else
+                        return PyLong_FromLong(i);
+                }
+                else
+                    return PyLong_FromLong(i);
+            }
+            else
+                return PyFloat_FromDouble(d);
         }
         else if (type == napi_boolean)
         {
