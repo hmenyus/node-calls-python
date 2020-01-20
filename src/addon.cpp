@@ -2,7 +2,9 @@
 #include <memory>
 #include <sstream>
 #include <iostream>
+#ifndef WIN32
 #include <dlfcn.h>
+#endif
 #include "cpyobject.h"
 #include "pyinterpreter.h"
 
@@ -520,6 +522,9 @@ namespace nodecallspython
 
         static napi_value fixlink(napi_env env, napi_callback_info info)
         {
+#ifdef WIN32
+            return nullptr;
+#else
             napi_value jsthis;
             size_t argc = 1;
             napi_value args[1];
@@ -550,6 +555,7 @@ namespace nodecallspython
             }
 
             return nullptr;
+#endif
         }
     };
 

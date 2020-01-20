@@ -11,6 +11,31 @@ bool nodecallspython::PyInterpreter::inited = false;
 
 namespace
 {
+    PyObject* handleInteger(napi_env env, napi_value arg)
+    {
+        //handle integers
+        int32_t i = 0;
+        auto res = napi_get_value_int32(env, arg, &i);
+        if (res != napi_ok)
+        {
+            uint32_t i = 0;
+            res = napi_get_value_uint32(env, arg, &i);
+            if (res != napi_ok)
+            {
+                int64_t i = 0;
+                res = napi_get_value_int64(env, arg, &i);
+                if (res == napi_ok)
+                    return PyLong_FromLong(i);
+                else
+                    return nullptr;
+            }
+            else
+                return PyLong_FromLong(i);
+        }
+        else
+            return PyLong_FromLong(i);
+    }
+
     PyObject* convert(napi_env env, napi_value arg)
     {
         napi_valuetype type;
@@ -54,27 +79,7 @@ namespace
             double d = 0.0;
             CHECK(napi_get_value_double(env, arg, &d));
             if ((double) ((int) d) == d)
-            {
-                //handle integers
-                int32_t i = 0;
-                auto res = napi_get_value_int32(env, arg, &i);
-                if (res != napi_ok)
-                {
-                    uint32_t i = 0;
-                    res = napi_get_value_uint32(env, arg, &i);
-                    if (res != napi_ok)
-                    {
-                        int64_t i = 0;
-                        res = napi_get_value_int64(env, arg, &i);
-                        if (res == napi_ok)
-                            return PyLong_FromLong(i);
-                    }
-                    else
-                        return PyLong_FromLong(i);
-                }
-                else
-                    return PyLong_FromLong(i);
-            }
+                return handleInteger(env, arg);
             else
                 return PyFloat_FromDouble(d);
         }
@@ -111,27 +116,7 @@ namespace
             return dict;
         }
         else
-        {
-            //handle integers
-            int32_t i = 0;
-            auto res = napi_get_value_int32(env, arg, &i);
-            if (res != napi_ok)
-            {
-                uint32_t i = 0;
-                res = napi_get_value_uint32(env, arg, &i);
-                if (res != napi_ok)
-                {
-                    int64_t i = 0;
-                    res = napi_get_value_int64(env, arg, &i);
-                    if (res == napi_ok)
-                        return PyLong_FromLong(i);
-                }
-                else
-                    return PyLong_FromLong(i);
-            }
-            else
-                return PyLong_FromLong(i);
-        }
+            return handleInteger(env, arg);
 
         return nullptr;
     }
@@ -153,6 +138,23 @@ CPyObject PyInterpreter::convert(napi_env env, const std::vector<napi_value>& ar
         PyTuple_SetItem(*params, i, cparams);
     }
     return params;
+}
+
+namespace
+{
+    napi_value fillArray(napi_env env, CPyObject& iterator, napi_value array)
+    {
+        PyObject *item;
+        auto i = 0;
+        while ((item = PyIter_Next(*iterator))) 
+        {
+            CHECK(napi_set_element(env, array, i, PyInterpreter::convert(env, item)));
+            Py_DECREF(item);
+            ++i;
+        }
+
+        return array;
+    }
 }
 
 napi_value PyInterpreter::convert(napi_env env, PyObject* obj)
@@ -214,16 +216,7 @@ napi_value PyInterpreter::convert(napi_env env, PyObject* obj)
 
         CPyObject iterator = PyObject_GetIter(obj);
 
-        PyObject *item;
-        auto i = 0;
-        while ((item = PyIter_Next(*iterator))) 
-        {
-            CHECK(napi_set_element(env, array, i, convert(env, item)));
-            Py_DECREF(item);
-            ++i;
-        }
-
-        return array;
+        return fillArray(env, iterator, array);
     }
     else if (PyDict_Check(obj))
     {
@@ -238,11 +231,28 @@ napi_value PyInterpreter::convert(napi_env env, PyObject* obj)
 
         return object;
     }
-    else
+    else if (obj == Py_None)
     {
         napi_value undefined;
         CHECK(napi_get_undefined(env, &undefined));
         return undefined;
+    }
+    else
+    {
+        CPyObject iterator = PyObject_GetIter(obj);
+        if (iterator)
+        {
+            napi_value array;
+            CHECK(napi_create_array(env, &array));
+
+            return fillArray(env, iterator, array);
+        }
+        else
+        {
+            napi_value undefined;
+            CHECK(napi_get_undefined(env, &undefined));
+            return undefined;
+        }
     }
 }
 

@@ -60,9 +60,9 @@ namespace nodecallspython
             }
         }
 
-        CPyObject convert(napi_env env, const std::vector<napi_value>& args);
+        static CPyObject convert(napi_env env, const std::vector<napi_value>& args);
 
-        napi_value convert(napi_env env, PyObject* obj);
+        static napi_value convert(napi_env env, PyObject* obj);
 
         std::string import(const std::string& modulename);
 
