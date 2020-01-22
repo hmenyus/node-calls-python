@@ -153,7 +153,19 @@ py.import("logreg.py")).then(async function(pymodule) { // import the python mod
 });
 ```
 
-### [See mode examples here](https://github.com/hmenyus/node-calls-python/tree/master/test)
+### Working Around Linking Errors on Linux
+If you get an error like this while trying to call Python code
+```ImportError: /usr/local/lib/python3.7/dist-packages/cpython-37m-arm-linux-gnueabihf.so: undefined symbol: PyExc_RuntimeError```
+
+You can fix it by passing the name of your libpython shared library to fixlink
+```javascript
+const nodecallspython = require("node-calls-python");
+
+let py = nodecallspython.interpreter;
+py.fixlink('libpython3.7m.so');
+```
+
+### [See more examples here](https://github.com/hmenyus/node-calls-python/tree/master/test)
 
 ## Supported data mapping
 
@@ -162,7 +174,7 @@ py.import("logreg.py")).then(async function(pymodule) { // import the python mod
   - undefined to None
   - null to None
   - boolean to boolean
-  - number to double
+  - number to double or long (as appropriate)
   - int32 to long
   - uint32 to long
   - int64 to long
