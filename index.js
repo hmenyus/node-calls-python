@@ -1,3 +1,6 @@
+const { execSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 const nodecallspython = require("./build/Release/nodecallspython");
 
 class Interpreter
@@ -5,6 +8,18 @@ class Interpreter
     constructor()
     {
         this.py = new nodecallspython.PyInterpreter();
+        if (process.platform === "linux")
+        {
+            const stdout = execSync("python3-config --configdir");
+            if (stdout)
+            {
+                const dir = stdout.toString().trim();
+                fs.readdirSync(dir).forEach(file => {
+                    if (file.match(/libpython.*\.so/))
+                        this.fixlink(path.join(dir, file));
+                });
+            }
+        }
     }
 
     import(filename)
