@@ -14,10 +14,13 @@ class Interpreter
             if (stdout)
             {
                 const dir = stdout.toString().trim();
-                fs.readdirSync(dir).forEach(file => {
-                    if (file.match(/libpython.*\.so/))
-                        this.fixlink(path.join(dir, file));
-                });
+                if (fs.existsSync(dir))
+                {
+                    fs.readdirSync(dir).forEach(file => {
+                        if (file.match(/libpython.*\.so/))
+                            this.fixlink(path.join(dir, file));
+                    });
+                }
             }
         }
     }
