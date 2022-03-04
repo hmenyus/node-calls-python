@@ -37,7 +37,7 @@ namespace nodecallspython
         {
             if (!inited)
             {
-                Py_Initialize();
+                Py_InitializeEx(0);
 
                 if (!PyEval_ThreadsInitialized())
                     PyEval_InitThreads();
