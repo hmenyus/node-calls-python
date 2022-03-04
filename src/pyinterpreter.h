@@ -6,9 +6,19 @@
 #include <mutex>
 #include <unordered_map>
 #include <iostream>
+#include <csignal>
+#include <cstdlib>
 
 namespace nodecallspython
 {
+    namespace impl
+    {
+        static void signal_handler_int(int)
+        {
+            std::exit(130);
+        }
+    }
+
     class GIL
     {
         PyGILState_STATE m_gstate;
@@ -45,6 +55,9 @@ namespace nodecallspython
                 Py_DECREF(PyImport_ImportModule("threading"));
 
                 m_state = PyEval_SaveThread();
+
+                if (!std::getenv("NODE_CALLS_PYTHON_IGNORE_SIGINT"))
+                    PyOS_setsig(SIGINT, impl::signal_handler_int);
 
                 inited = true;
             }
