@@ -1,11 +1,51 @@
 #include "pyinterpreter.h"
 #include <sstream>
 #include <iostream>
+#include <csignal>
+#include <cstdlib>
 
 using namespace nodecallspython;
 
 std::mutex nodecallspython::GIL::m_mutex;
 bool nodecallspython::PyInterpreter::inited = false;
+
+namespace
+{
+    void signal_handler_int(int)
+    {
+        std::exit(130);
+    }
+}
+
+PyInterpreter::PyInterpreter() : m_state(nullptr)
+{
+    if (!inited)
+    {
+        Py_InitializeEx(0);
+
+        if (!PyEval_ThreadsInitialized())
+            PyEval_InitThreads();
+
+        Py_DECREF(PyImport_ImportModule("threading"));
+
+        m_state = PyEval_SaveThread();
+
+        if (!std::getenv("NODE_CALLS_PYTHON_IGNORE_SIGINT"))
+            PyOS_setsig(SIGINT, ::signal_handler_int);
+
+        inited = true;
+    }
+}
+
+PyInterpreter::~PyInterpreter()
+{
+    if (m_state)
+    {
+        PyEval_RestoreThread(m_state);
+        m_objs = {};
+        Py_Finalize();
+    }
+}
 
 #define CHECK(func) { if (func != napi_ok) { napi_throw_error(env, "error", #func); return nullptr; } }
 

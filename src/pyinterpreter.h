@@ -6,19 +6,9 @@
 #include <mutex>
 #include <unordered_map>
 #include <iostream>
-#include <csignal>
-#include <cstdlib>
 
 namespace nodecallspython
 {
-    namespace impl
-    {
-        static void signal_handler_int(int)
-        {
-            std::exit(130);
-        }
-    }
-
     class GIL
     {
         PyGILState_STATE m_gstate;
@@ -43,35 +33,9 @@ namespace nodecallspython
         std::unordered_map<std::string, CPyObject> m_objs;
         static bool inited;
     public:
-        PyInterpreter() : m_state(nullptr)
-        {
-            if (!inited)
-            {
-                Py_InitializeEx(0);
+        PyInterpreter();
 
-                if (!PyEval_ThreadsInitialized())
-                    PyEval_InitThreads();
-
-                Py_DECREF(PyImport_ImportModule("threading"));
-
-                m_state = PyEval_SaveThread();
-
-                if (!std::getenv("NODE_CALLS_PYTHON_IGNORE_SIGINT"))
-                    PyOS_setsig(SIGINT, impl::signal_handler_int);
-
-                inited = true;
-            }
-        }
-
-        ~PyInterpreter()
-        {
-            if (m_state)
-            {
-                PyEval_RestoreThread(m_state);
-                m_objs = {};
-                Py_Finalize();
-            }
-        }
+        ~PyInterpreter();
 
         static CPyObject convert(napi_env env, const std::vector<napi_value>& args);
 
