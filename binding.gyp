@@ -35,7 +35,9 @@
                         "libraries": [
                             "<!(python3-config --libs --embed)"
                         ]
-                    }
+                    },
+                    'cflags': ['-fexceptions'],
+                    'cflags_cc': ['-fexceptions']
                 }
                 ]
             ],
