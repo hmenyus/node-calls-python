@@ -20,6 +20,7 @@ namespace nodecallspython
         napi_ref m_callback;
         PyInterpreter* m_py;
         napi_env m_env;
+        std::string m_error;
 
         ~BaseTask()
         {
@@ -95,11 +96,55 @@ namespace nodecallspython
         return createHandler(env, task->m_py, task->m_handler);
     }
 
+    static void CallAsync(napi_env env, void* data)
+    {
+        auto task = static_cast<CallTask*>(data);
+        GIL gil;
+        try
+        {
+            if (task->m_isfunc)
+                task->m_result = task->m_py->call(task->m_handler, task->m_func, task->m_args);
+            else
+                task->m_handler = task->m_py->create(task->m_handler, task->m_func, task->m_args);
+        }
+        catch(const std::exception& e)
+        {
+            task->m_error = e.what();
+        }
+    }
+
     static void ImportAsync(napi_env env, void* data)
     {
         auto task = static_cast<ImportTask*>(data);
         GIL gil;
-        task->m_handler = task->m_py->import(task->m_name);
+        try
+        {
+            task->m_handler = task->m_py->import(task->m_name);
+        } catch(const std::exception& e)
+        {
+            task->m_error = e.what();
+        }
+    }
+
+    void handleError(napi_env env, const BaseTask& task)
+    {
+        napi_value undefined;
+        CHECK(napi_get_undefined(env, &undefined));
+
+        napi_value error;
+        const std::string unknownError("Unknown python error");
+        CHECK(napi_create_string_utf8(env, task.m_error.empty() ? unknownError.c_str() : task.m_error.c_str(), NAPI_AUTO_LENGTH, &error));
+
+        napi_value args[] = {undefined, error};
+
+        napi_value callback;
+        CHECK(napi_get_reference_value(env, task.m_callback, &callback));
+
+        napi_value global;
+        CHECK(napi_get_global(env, &global));
+
+        napi_value result;
+        CHECK(napi_call_function(env, global, callback, 2, args, &result));
     }
 
     static void ImportComplete(napi_env env, napi_status status, void* data)
@@ -107,22 +152,13 @@ namespace nodecallspython
         std::unique_ptr<ImportTask> task(static_cast<ImportTask*>(data));
         task->m_env = env;
 
-        napi_value global;
-        CHECK(napi_get_global(env, &global));
-
-        if (task->m_handler.empty())
-        {
-            napi_value undefined;
-            CHECK(napi_get_undefined(env, &undefined));
-
-            napi_value callback;
-            CHECK(napi_get_reference_value(env, task->m_callback, &callback));
-
-            napi_value result;
-            CHECK(napi_call_function(env, global, callback, 1, &undefined, &result));
-        }
+        if (!task->m_error.empty())
+            handleError(env, *task);
         else
         {
+            napi_value global;
+            CHECK(napi_get_global(env, &global));
+
             auto handler = createHandler(env, task.get());
 
             napi_value callback;
@@ -138,11 +174,13 @@ namespace nodecallspython
         std::unique_ptr<CallTask> task(static_cast<CallTask*>(data));
         task->m_env = env;
 
-        napi_value global;
-        CHECK(napi_get_global(env, &global));
-
-        if (task->m_result || (!task->m_isfunc && !task->m_handler.empty()))
+        if (!task->m_error.empty())
+            handleError(env, *task);
+        else
         {
+            napi_value global;
+            CHECK(napi_get_global(env, &global));
+
             napi_value args;
             if (task->m_isfunc)
             {
@@ -160,34 +198,8 @@ namespace nodecallspython
             napi_value result;
             CHECK(napi_call_function(env, global, callback, 1, &args, &result));
         }
-        else
-        {
-            napi_value undefined;
-            CHECK(napi_get_undefined(env, &undefined));
-
-            napi_value error;
-            CHECK(napi_create_string_utf8(env, "Cannot call function", NAPI_AUTO_LENGTH, &error));
-
-            napi_value args[] = {undefined, error};
-
-            napi_value callback;
-            CHECK(napi_get_reference_value(env, task->m_callback, &callback));
-
-            napi_value result;
-            CHECK(napi_call_function(env, global, callback, 2, args, &result));
-        }
     }
-
-    static void CallAsync(napi_env env, void* data)
-    {
-        auto task = static_cast<CallTask*>(data);
-        GIL gil;
-        if (task->m_isfunc)
-            task->m_result = task->m_py->call(task->m_handler, task->m_func, task->m_args);
-        else
-            task->m_handler = task->m_py->create(task->m_handler, task->m_func, task->m_args);
-    }
-
+    
     class Python
     {
         napi_env m_env;
@@ -327,26 +339,33 @@ namespace nodecallspython
                 for (auto i=2u;i<argc;++i)
                     napiargs.push_back(args[i]);
 
-                GIL gil;
-                auto& py = obj->getInterpreter();
-                auto args = py.convert(env, napiargs);
-
-                napi_value result;
-                if (isfunc)
+                try
                 {
-                    auto pyres = py.call(handler, func, args);
-                    if (pyres)
-                        result = py.convert(env, *pyres);
+                    GIL gil;
+                    auto& py = obj->getInterpreter();
+                    auto args = py.convert(env, napiargs);
+
+                    napi_value result;
+                    if (isfunc)
+                    {
+                        auto pyres = py.call(handler, func, args);
+                        if (pyres)
+                            result = py.convert(env, *pyres);
+                        else
+                            CHECKNULL(napi_get_undefined(env, &result));
+                    }
                     else
-                        CHECKNULL(napi_get_undefined(env, &result));
-                }
-                else
-                {
-                    auto newhandler = py.create(handler, func, args);
-                    result = createHandler(env, &py, newhandler);
-                }
+                    {
+                        auto newhandler = py.create(handler, func, args);
+                        result = createHandler(env, &py, newhandler);
+                    }
 
-                return result;
+                    return result;
+                }
+                catch(const std::exception& e)
+                {
+                    napi_throw_error(env, "py", e.what());
+                }
             }
             else
             {
@@ -470,18 +489,16 @@ namespace nodecallspython
                 auto& py = obj->getInterpreter();
 
                 std::string handler;
+                try
                 {
                     GIL gil;
                     handler = py.import(name);
+                    return createHandler(env, &py, handler);
                 }
-
-                napi_value result;
-                if (handler.empty())
-                    CHECKNULL(napi_get_undefined(env, &result))
-                else
-                    result = createHandler(env, &py, handler);
-                
-                return result;
+                catch(const std::exception& e)
+                {
+                    napi_throw_error(env, "py", e.what());
+                }
             }
             else
             {

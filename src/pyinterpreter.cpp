@@ -310,6 +310,29 @@ namespace
         ss << *obj;
         return ss.str();
     }
+
+    void handleException()
+    {
+        if (PyErr_Occurred())
+        {
+            PyObject *type, *value, *traceback;
+            PyErr_Fetch(&type, &value, &traceback);
+
+            CPyObject error = PyObject_Str(value);
+
+            std::runtime_error err("Unknown python error");
+            if (error)
+            {
+                Py_ssize_t size;
+                auto str = PyUnicode_AsUTF8AndSize(*error, &size);
+                err = std::runtime_error(str ? str : "Unknown python error");
+            }
+
+            PyErr_Restore(type, value, traceback);
+
+            throw err;
+        }
+    }
 }
 
 std::string PyInterpreter::import(const std::string& modulename)
@@ -342,7 +365,7 @@ std::string PyInterpreter::import(const std::string& modulename)
         return name;
     }
     else
-        PyErr_Print();
+        handleException();
         
     return std::string();
 }
@@ -360,14 +383,14 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
         CPyObject pyResult = PyObject_CallObject(*pyFunc, *args);
         if (!*pyResult)
         {
-            PyErr_Print();
+            handleException();
             return CPyObject();
         }
 
         return pyResult;
     }
     else
-        PyErr_Print();
+        handleException();
     
     return CPyObject();
 }

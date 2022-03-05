@@ -7,6 +7,14 @@
                     "include_dirs" : [ 
                         "<!(node ./scripts/pysearch.js include)"
                     ],
+                    "defines": [
+                        "_HAS_EXCEPTIONS=1"
+                    ],
+                    "msvs_settings": {
+                        "VCCLCompilerTool": {
+                            "ExceptionHandling": 1
+                        }
+                    },
                     "link_settings": {
                         "library_dirs": [
                             "<!(node ./scripts/pysearch.js libs)"

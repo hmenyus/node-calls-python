@@ -28,11 +28,11 @@ class Interpreter
     import(filename)
     {
         return new Promise(function(resolve, reject) {
-            this.py.import(filename, function(handler) {
+            this.py.import(filename, function(handler, error) {
                 if (handler)
                     resolve(handler);
                 else
-                    reject("Cannot load module");
+                    reject(error);
             });
         }.bind(this));
     }
