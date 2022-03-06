@@ -44,11 +44,8 @@
                         "<!(python3-config --includes)"
                     ],
                     "link_settings": {
-                        "library_dirs": [
-                            "<!(python3-config --ldflags --embed)",
-                        ],
                         "libraries": [
-                            "<!(python3-config --libs --embed)"
+                            "<!(python3-config --ldflags --embed)"
                         ]
                     },
                     'xcode_settings': {
