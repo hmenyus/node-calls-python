@@ -105,6 +105,9 @@ it("nodecallspython errors", async () => {
     await expect(py.call(pymodule, "dump", "a")).rejects.toEqual("dump() missing 1 required positional argument: 'b'");
     expect(() => py.callSync(pymodule, "dump", "a")).toThrow("dump() missing 1 required positional argument: 'b'");
 
+    await expect(py.call(pymodule, "testException")).rejects.toEqual("test");
+    expect(() => py.callSync(pymodule, "testException")).toThrow("test");
+
     await expect(py.create(pymodule, "Calculator2")).rejects.toEqual("module 'nodetest' has no attribute 'Calculator2'");
     expect(() => py.createSync(pymodule, "Calculator2")).toThrow("module 'nodetest' has no attribute 'Calculator2'");
 
@@ -130,6 +133,8 @@ it("nodecallspython errors", async () => {
 
     await testError(() => { return py.call(pymodule, "error"); });
 
+    await testError(() => { return py.call(pymodule, "testException"); });
+
     await testError(() => { return py.create(pymodule, "Calculator2"); });
 
     await testError(() => { return py.import(path.join(__dirname, "error.py")); }, 10);
@@ -152,6 +157,8 @@ it("nodecallspython errors", async () => {
     }
 
     testErrorSync(() => { return py.callSync(pymodule, "error"); });
+
+    testErrorSync(() => { return py.callSync(pymodule, "testException"); });
 
     testErrorSync(() => { return py.createSync(pymodule, "Calculator2"); });
 

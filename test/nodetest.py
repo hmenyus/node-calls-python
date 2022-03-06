@@ -37,6 +37,9 @@ def mergedict(a, b):
 
     return res
 
+def testException():
+    raise RuntimeError("test")
+
 def undefined(un, n):    
     return (un, n, {1, 2, "www"})
 
