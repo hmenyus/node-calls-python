@@ -23,8 +23,8 @@
                             "<!(node ./scripts/pysearch.js lib)"
                         ],
                     }
-                },
-                {
+                }],
+                ['OS=="linux"', {
                     "include_dirs" : [
                         "<!(python3-config --includes)"
                     ],
@@ -38,8 +38,24 @@
                     },
                     'cflags': ['-fexceptions'],
                     'cflags_cc': ['-fexceptions']
-                }
-                ]
+                }],
+                ['OS=="mac"', {
+                    "include_dirs" : [
+                        "<!(python3-config --includes)"
+                    ],
+                    "link_settings": {
+                        "library_dirs": [
+                            "<!(python3-config --ldflags --embed)",
+                        ],
+                        "libraries": [
+                            "<!(python3-config --libs --embed)"
+                        ]
+                    },
+                    'xcode_settings': {
+                        'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                        'CLANG_CXX_LIBRARY': 'libc++'
+                    }
+                }]
             ],
             "sources": [
                 "src/addon.cpp",
