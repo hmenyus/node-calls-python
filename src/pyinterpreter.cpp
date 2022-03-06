@@ -23,8 +23,10 @@ PyInterpreter::PyInterpreter() : m_state(nullptr)
     {
         Py_InitializeEx(0);
 
+#if PY_MINOR_VERSION < 9
         if (!PyEval_ThreadsInitialized())
             PyEval_InitThreads();
+#endif
 
         Py_DECREF(PyImport_ImportModule("threading"));
 
