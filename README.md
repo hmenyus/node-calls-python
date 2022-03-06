@@ -113,7 +113,7 @@ let py = nodecallspython.interpreter;
 
 py.import("test.py").then(async function(pymodule) {
     let pyobj = py.createSync(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
-    let result = await py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]); // you can use ayns version (call) as well
+    let result = await py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]); // you can use async version (call) as well
 });
 ```
 
