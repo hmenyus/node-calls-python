@@ -42,7 +42,12 @@ sudo npm install -g node-gyp
 npm install --global --production windows-build-tools
 npm install -g node-gyp
 ```
-  
+
+### **Mac**: install XCode from AppStore, [NodeJS](https://nodejs.org/en/download/) and [Python](https://www.python.org/downloads/)
+```
+npm install node-calls-python
+```
+
 ## Examples
 
 ### Calling a simple python function
