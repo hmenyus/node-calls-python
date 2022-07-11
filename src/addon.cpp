@@ -562,7 +562,15 @@ namespace nodecallspython
             if (valuetype == napi_string)
             {
                 auto filename = convertString(env, args[0]);
-                dlopen(filename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+                auto result = dlopen(filename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+                if (!result)
+                {
+                    auto error = dlerror();
+                    if (error)
+                        napi_throw_error(env, "args", error);
+                    else
+                        napi_throw_error(env, "args", "Unknown error of dlopen");
+                }
                 
                 return nullptr;
             }

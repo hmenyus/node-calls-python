@@ -30,11 +30,12 @@
                     ],
                     "link_settings": {
                         "libraries": [
-                            "<!(python3-config --ldflags --embed)"
+                            "<!(python3-config --ldflags --embed)",
+                            "<!(node ./scripts/rpaths.js)"
                         ]
                     },
-                    'cflags': ['-fexceptions'],
-                    'cflags_cc': ['-fexceptions']
+                    'cflags': ["<!(python3-config --cflags)", "-fexceptions"],
+                    'cflags_cc': ["<!(python3-config --cflags)", "-fexceptions"]
                 }],
                 ['OS=="mac"', {
                     "include_dirs" : [
@@ -42,7 +43,8 @@
                     ],
                     "link_settings": {
                         "libraries": [
-                            "<!(python3-config --ldflags --embed)"
+                            "<!(python3-config --ldflags --embed)",
+                            "<!(node ./scripts/rpaths.js)"
                         ]
                     },
                     'xcode_settings': {
