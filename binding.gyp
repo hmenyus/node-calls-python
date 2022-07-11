@@ -43,8 +43,7 @@
                     ],
                     "link_settings": {
                         "libraries": [
-                            "<!(python3-config --ldflags --embed)",
-                            "<!(node ./scripts/rpaths.js)"
+                            "<!(python3-config --ldflags --embed)"
                         ]
                     },
                     'xcode_settings': {
