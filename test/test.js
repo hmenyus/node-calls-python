@@ -30,9 +30,17 @@ it("nodecallspython tests", async () => {
 
     expect(py.callSync(pymodule, "multiple", [1, 2, 3, 4], [2, 3, 4, 5])).toEqual([2, 6, 12, 20]);
 
+    await expect(py.call(pymodule, "multipleNp", [1, 2, 3, 4], [2, 3, 4, 5])).resolves.toEqual([2, 6, 12, 20]);
+
+    expect(py.callSync(pymodule, "multipleNp", [1, 2, 3, 4], [2, 3, 4, 5])).toEqual([2, 6, 12, 20]);
+
     await expect(py.call(pymodule, "multiple2D", [[1, 2], [3, 4]], [[2, 3], [4, 5]])).resolves.toEqual([[10, 13], [22, 29]]);
 
     expect(py.callSync(pymodule, "multiple2D", [[1, 2], [3, 4]], [[2, 3], [4, 5]])).toEqual([[10, 13], [22, 29]]);
+
+    await expect(py.call(pymodule, "numpyArray")).resolves.toEqual([[1.3, 2.1, 2], [1, 1, 2]]);
+
+    expect(py.callSync(pymodule, "numpyArray")).toEqual([[1.3, 2.1, 2], [1, 1, 2]]);
 
     await expect(py.call(pymodule, "createtuple")).resolves.toEqual(["aaa", 1, 2.3 ]);
 

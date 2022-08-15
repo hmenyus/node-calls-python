@@ -291,6 +291,31 @@ napi_value PyInterpreter::convert(napi_env env, PyObject* obj)
         }
         else
         {
+            // attempt to force convert to support numpy arrays
+            PyErr_Clear();
+
+            // cannot decide between int and double if we do not know the type here, so cast everything to double
+            auto value = PyFloat_AsDouble(obj);
+            if (!PyErr_Occurred())
+            {
+                napi_value result;
+                CHECK(napi_create_double(env, value, &result));
+                return result;
+            }
+            else
+            {
+                PyErr_Clear();
+                Py_ssize_t size;
+                auto str = PyUnicode_AsUTF8AndSize(obj, &size);
+                if (str)
+                {
+                    napi_value result;
+                    CHECK(napi_create_string_utf8(env, str, size, &result));
+                    return result;
+                }
+                PyErr_Clear();
+            }
+
             napi_value undefined;
             CHECK(napi_get_undefined(env, &undefined));
             return undefined;

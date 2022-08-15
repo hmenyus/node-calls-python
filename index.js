@@ -8,7 +8,7 @@ class Interpreter
     constructor()
     {
         this.py = new nodecallspython.PyInterpreter();
-        if (process.platform === "linux" || process.platform === "darwin")
+        if (process.platform === "linux")
         {
             const stdout = execSync("python3-config --configdir");
             if (stdout)
@@ -16,9 +16,8 @@ class Interpreter
                 const dir = stdout.toString().trim();
                 if (fs.existsSync(dir))
                 {
-                    const reg = process.platform === "linux" ? /libpython.*\.so/ : /libpython.*\.dylib/;
                     fs.readdirSync(dir).forEach(file => {
-                        if (file.match(reg))
+                        if (file.match(/libpython.*\.so/))
                         {
                             try
                             {

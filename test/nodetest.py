@@ -18,6 +18,12 @@ def concatenate(s1, s2):
 def check(a):
     return a == 42
 
+def multipleNp(a, b):
+    return np.multiply(a, b);
+
+def numpyArray():
+    return np.array([[1.3, 2.1, 2], [1, 1, 2]])
+
 def multiple(a, b):
     return np.multiply(a, b).tolist()
 
