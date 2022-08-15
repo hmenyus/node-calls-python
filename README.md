@@ -48,7 +48,7 @@ npm install -g node-gyp
 npm install node-calls-python
 ```
 
-#### If you see installion problems on Mac with ARM (E.g. using M1 Pro ), try to specify 'arch' and/or 'target_arch' parameters for npm
+#### If you see installation problems on Mac with ARM (E.g. using M1 Pro), try to specify 'arch' and/or 'target_arch' parameters for npm
 ```
 npm install --arch=arm64 --target_arch=arm64 node-calls-python
 ```
