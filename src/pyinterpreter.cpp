@@ -440,3 +440,10 @@ void PyInterpreter::release(const std::string& handler)
 {
     m_objs.erase(handler);
 }
+
+void PyInterpreter::addImportPath(const std::string& path)
+{
+    auto sysPath = PySys_GetObject((char*)"path");
+    CPyObject dirName = PyUnicode_FromString(path.c_str());
+    PyList_Insert(sysPath, 0, *dirName);
+}

@@ -48,5 +48,7 @@ namespace nodecallspython
         void release(const std::string& handler);
         
         CPyObject call(const std::string& handler, const std::string& func, CPyObject& args);
+
+        void addImportPath(const std::string& path);
     };
 }

@@ -89,6 +89,11 @@ class Interpreter
     {
         return this.py.fixlink(filename);
     }
+
+    addImportPath(path)
+    {
+        return this.py.addImportPath(path);
+    }
 }
 
 let py = new Interpreter();
