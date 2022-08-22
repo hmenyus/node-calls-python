@@ -422,6 +422,26 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
     return CPyObject();
 }
 
+CPyObject PyInterpreter::exec(const std::string& handler, const std::string& code)
+{
+    auto it = m_objs.find(handler);
+
+    if(it == m_objs.end())
+        return CPyObject();
+
+    auto localsPtr = PyModule_GetDict(*(it->second));
+    auto globals = CPyObject{PyDict_New()};
+
+    CPyObject pyResult = PyRun_String(code.c_str(), Py_file_input, *globals, localsPtr);
+    if (!*pyResult)
+    {
+        handleException();
+        return CPyObject();
+    }
+
+    return pyResult;
+}
+
 std::string PyInterpreter::create(const std::string& handler, const std::string& name, CPyObject& args)
 {
     auto obj = call(handler, name, args);
