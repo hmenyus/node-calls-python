@@ -102,6 +102,28 @@ class Interpreter
         }.bind(this));
     }
 
+    execSync(handler, code)
+    {
+        return this.py.execSync(handler, code);
+    }
+
+    eval(handler, code)
+    {
+        return new Promise(function(resolve, reject) {
+            this.py.eval(handler, code, function(result, error) {
+                if (error)
+                    reject(error);
+                else
+                    resolve(result);
+            });
+        }.bind(this));
+    }
+
+    evalSync(handler, code)
+    {
+        return this.py.evalSync(handler, code);
+    }
+
     addImportPath(path)
     {
         return this.py.addImportPath(path);

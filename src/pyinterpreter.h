@@ -49,7 +49,7 @@ namespace nodecallspython
         
         CPyObject call(const std::string& handler, const std::string& func, CPyObject& args);
 
-        CPyObject exec(const std::string& handler, const std::string& code);
+        CPyObject exec(const std::string& handler, const std::string& code, bool eval);
 
         void addImportPath(const std::string& path);
     };

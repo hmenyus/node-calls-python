@@ -382,7 +382,8 @@ std::string PyInterpreter::import(const std::string& modulename)
     auto len = name.length();
     if (len > 2 && name[len - 3] == '.' && name[len - 2] == 'p' && name[len - 1] == 'y')
         name = name.substr(0, len - 3);
-
+    
+    PyErr_Clear();
     CPyObject pyModule = PyImport_ImportModule(name.c_str());
 
     if(pyModule)
@@ -404,6 +405,7 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
     if(it == m_objs.end())
         return CPyObject();
 
+    PyErr_Clear();
     CPyObject pyFunc = PyObject_GetAttrString(*(it->second), func.c_str());
     if (pyFunc && PyCallable_Check(*pyFunc))
     {
@@ -422,7 +424,7 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
     return CPyObject();
 }
 
-CPyObject PyInterpreter::exec(const std::string& handler, const std::string& code)
+CPyObject PyInterpreter::exec(const std::string& handler, const std::string& code, bool eval)
 {
     auto it = m_objs.find(handler);
 
@@ -432,7 +434,8 @@ CPyObject PyInterpreter::exec(const std::string& handler, const std::string& cod
     auto localsPtr = PyModule_GetDict(*(it->second));
     auto globals = CPyObject{PyDict_New()};
 
-    CPyObject pyResult = PyRun_String(code.c_str(), Py_file_input, *globals, localsPtr);
+    PyErr_Clear();
+    CPyObject pyResult = PyRun_String(code.c_str(), eval ? Py_eval_input : Py_file_input, *globals, localsPtr);
     if (!*pyResult)
     {
         handleException();
