@@ -39,7 +39,7 @@ namespace nodecallspython
     {
         std::string m_handler;
         std::string m_func;
-        bool m_isfunc;
+        bool m_isFunc;
         CPyObject m_args;
 
         CPyObject m_result;
@@ -56,6 +56,7 @@ namespace nodecallspython
     {
         std::string m_handler;
         std::string m_code;
+        bool m_eval;
 
         CPyObject m_result;
 
@@ -116,7 +117,7 @@ namespace nodecallspython
         GIL gil;
         try
         {
-            if (task->m_isfunc)
+            if (task->m_isFunc)
                 task->m_result = task->m_py->call(task->m_handler, task->m_func, task->m_args);
             else
                 task->m_handler = task->m_py->create(task->m_handler, task->m_func, task->m_args);
@@ -133,7 +134,7 @@ namespace nodecallspython
         GIL gil;
         try
         {
-            task->m_result = task->m_py->exec(task->m_handler, task->m_code);
+            task->m_result = task->m_py->exec(task->m_handler, task->m_code, task->m_eval);
         }
         catch(const std::exception& e)
         {
@@ -210,7 +211,7 @@ namespace nodecallspython
             CHECK(napi_get_global(env, &global));
 
             napi_value args;
-            if (task->m_isfunc)
+            if (task->m_isFunc)
             {
                 GIL gil;
                 args = task->m_py->convert(env, *task->m_result);
@@ -267,15 +268,18 @@ namespace nodecallspython
                 DECLARE_NAPI_METHOD("importSync", importSync),
                 DECLARE_NAPI_METHOD("call", call),
                 DECLARE_NAPI_METHOD("callSync", callSync),
-                DECLARE_NAPI_METHOD("create", newclass),
-                DECLARE_NAPI_METHOD("createSync", newclassSync),
+                DECLARE_NAPI_METHOD("create", newClass),
+                DECLARE_NAPI_METHOD("createSync", newClassSync),
                 DECLARE_NAPI_METHOD("fixlink", fixlink),
                 DECLARE_NAPI_METHOD("exec", exec),
+                DECLARE_NAPI_METHOD("execSync", execSync),
+                DECLARE_NAPI_METHOD("eval", eval),
+                DECLARE_NAPI_METHOD("evalSync", evalSync),
                 DECLARE_NAPI_METHOD("addImportPath", addImportPath)
             };
 
             napi_value cons;
-            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 9, properties, &cons));
+            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 12, properties, &cons));
 
             CHECKNULL(napi_create_reference(env, cons, 1, &constructor));
 
@@ -289,73 +293,7 @@ namespace nodecallspython
            delete reinterpret_cast<Python*>(nativeObject);
         }
 
-        static napi_value callImpl(napi_env env, napi_callback_info info, bool func) 
-        {
-            napi_value jsthis;
-            size_t argc = 100;
-            napi_value args[100];
-            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
-
-            if (argc < 3)
-            {
-                napi_throw_error(env, "args", "Must have at least 3 arguments");
-                return nullptr;
-            }
-
-            Python* obj;
-            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
-
-            napi_valuetype handlerT;
-            CHECKNULL(napi_typeof(env, args[0], &handlerT));
-
-            napi_valuetype funcT;
-            CHECKNULL(napi_typeof(env, args[1], &funcT));
-
-            napi_valuetype callbackT;
-            CHECKNULL(napi_typeof(env, args[argc - 1], &callbackT));
-
-            if (handlerT == napi_object && funcT == napi_string && callbackT == napi_function)
-            {
-                napi_value optname;
-                napi_create_string_utf8(env, "Python::import", NAPI_AUTO_LENGTH, &optname);
-
-                CallTask* task = new CallTask;
-                task->m_py = &(obj->getInterpreter());
-
-                napi_value key;
-                CHECKNULL(napi_create_string_utf8(env, "handler", NAPI_AUTO_LENGTH, &key));
-
-                napi_value value;
-                CHECKNULL(napi_get_property(env, args[0], key, &value));
-
-                task->m_handler = convertString(env, value);
-                task->m_func = convertString(env, args[1]);
-                task->m_isfunc = func;
-
-                std::vector<napi_value> napiargs;
-                napiargs.reserve(argc - 3);
-                for (auto i=2u;i<argc - 1;++i)
-                    napiargs.push_back(args[i]);
-
-                {
-                    GIL gil;
-                    task->m_args = obj->getInterpreter().convert(env, napiargs);
-                }
-
-                CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
-
-                CHECKNULL(napi_create_async_work(env, args[1], optname, CallAsync, CallComplete, task, &task->m_work));
-                CHECKNULL(napi_queue_async_work(env, task->m_work));
-            }
-            else
-            {
-                napi_throw_error(env, "args", "Wrong type of arguments");
-            }
-
-            return nullptr;
-        }
-
-        static napi_value callImplSync(napi_env env, napi_callback_info info, bool isfunc) 
+        static napi_value callImpl(napi_env env, napi_callback_info info, bool isFunc, bool sync) 
         {
             napi_value jsthis;
             size_t argc = 100;
@@ -364,7 +302,7 @@ namespace nodecallspython
 
             if (argc < 2)
             {
-                napi_throw_error(env, "args", "Must have at least 2 arguments");
+                napi_throw_error(env, "args", "Wrong number of arguments");
                 return nullptr;
             }
 
@@ -390,35 +328,66 @@ namespace nodecallspython
 
                 std::vector<napi_value> napiargs;
                 napiargs.reserve(argc - 2);
-                for (auto i=2u;i<argc;++i)
+                for (auto i=2u;i<argc - (sync ? 0 : 1);++i)
                     napiargs.push_back(args[i]);
 
-                try
+                if (sync)
                 {
-                    GIL gil;
-                    auto& py = obj->getInterpreter();
-                    auto args = py.convert(env, napiargs);
-
-                    napi_value result;
-                    if (isfunc)
+                    try
                     {
-                        auto pyres = py.call(handler, func, args);
-                        if (pyres)
-                            result = py.convert(env, *pyres);
+                        GIL gil;
+                        auto& py = obj->getInterpreter();
+                        auto args = py.convert(env, napiargs);
+
+                        napi_value result;
+                        if (isFunc)
+                        {
+                            auto pyres = py.call(handler, func, args);
+                            if (pyres)
+                                result = py.convert(env, *pyres);
+                            else
+                                CHECKNULL(napi_get_undefined(env, &result));
+                        }
                         else
-                            CHECKNULL(napi_get_undefined(env, &result));
-                    }
-                    else
-                    {
-                        auto newhandler = py.create(handler, func, args);
-                        result = createHandler(env, &py, newhandler);
-                    }
+                        {
+                            auto newhandler = py.create(handler, func, args);
+                            result = createHandler(env, &py, newhandler);
+                        }
 
-                    return result;
+                        return result;
+                    }
+                    catch(const std::exception& e)
+                    {
+                        napi_throw_error(env, "py", e.what());
+                    }
                 }
-                catch(const std::exception& e)
+                else
                 {
-                    napi_throw_error(env, "py", e.what());
+                    napi_valuetype callbackT;
+                    CHECKNULL(napi_typeof(env, args[argc - 1], &callbackT));
+
+                    if (callbackT == napi_function)
+                    {
+                        CallTask* task = new CallTask;
+                        task->m_py = &(obj->getInterpreter());
+
+                        task->m_handler = convertString(env, value);
+                        task->m_func = convertString(env, args[1]);
+                        task->m_isFunc = isFunc;
+
+                        napi_value optname;
+                        napi_create_string_utf8(env, "Python::call", NAPI_AUTO_LENGTH, &optname);
+
+                        {
+                            GIL gil;
+                            task->m_args = obj->getInterpreter().convert(env, napiargs);
+                        }
+
+                        CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
+
+                        CHECKNULL(napi_create_async_work(env, args[1], optname, CallAsync, CallComplete, task, &task->m_work));
+                        CHECKNULL(napi_queue_async_work(env, task->m_work));
+                    }
                 }
             }
             else
@@ -429,16 +398,16 @@ namespace nodecallspython
             return nullptr;
         }
 
-        static napi_value execImpl(napi_env env, napi_callback_info info)
+        static napi_value execImpl(napi_env env, napi_callback_info info, bool eval, bool sync)
         {
             napi_value jsthis;
             size_t argc = 3;
             napi_value args[3];
             CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
 
-            if (argc < 3)
+            if (argc < 2)
             {
-                napi_throw_error(env, "args", "Wrong type of arguments");
+                napi_throw_error(env, "args", "Wrong number of arguments");
                 return nullptr;
             }
 
@@ -451,30 +420,122 @@ namespace nodecallspython
             napi_valuetype codeToExecT;
             CHECKNULL(napi_typeof(env, args[1], &codeToExecT));
 
-            napi_valuetype callbackT;
-            CHECKNULL(napi_typeof(env, args[argc - 1], &callbackT));
-
-            if (handlerT == napi_object && codeToExecT == napi_string && callbackT == napi_function)
+            if (handlerT == napi_object && codeToExecT == napi_string)
             {
-                napi_value optname;
-                napi_create_string_utf8(env, "Python::import", NAPI_AUTO_LENGTH, &optname);
-
-                ExecTask* task = new ExecTask;
-                task->m_py = &(obj->getInterpreter());
-
                 napi_value key;
                 CHECKNULL(napi_create_string_utf8(env, "handler", NAPI_AUTO_LENGTH, &key));
 
                 napi_value value;
                 CHECKNULL(napi_get_property(env, args[0], key, &value));
 
-                task->m_handler = convertString(env, value);
-                task->m_code = convertString(env, args[1]);
+                if (sync)
+                {
+                    try
+                    {
+                        GIL gil;
+                        auto& py = obj->getInterpreter();
+                        auto pyres = py.exec(convertString(env, value), convertString(env, args[1]), eval);
+                        napi_value result;
+                        if (pyres)
+                            result = py.convert(env, *pyres);
+                        else
+                            CHECKNULL(napi_get_undefined(env, &result));
+                        return result;
+                    }
+                    catch(const std::exception& e)
+                    {
+                        napi_throw_error(env, "py", e.what());
+                    }
+                }
+                else
+                {
+                    napi_valuetype callbackT;
+                    CHECKNULL(napi_typeof(env, args[argc - 1], &callbackT));
 
-                CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
+                    if (callbackT == napi_function)
+                    {
+                        ExecTask* task = new ExecTask;
+                        task->m_py = &(obj->getInterpreter());
 
-                CHECKNULL(napi_create_async_work(env, args[1], optname, ExecAsync, ExecComplete, task, &task->m_work));
-                CHECKNULL(napi_queue_async_work(env, task->m_work));
+                        task->m_handler = convertString(env, value);
+                        task->m_code = convertString(env, args[1]);
+                        task->m_eval = eval;
+
+                        napi_value optname;
+                        napi_create_string_utf8(env, "Python::exec", NAPI_AUTO_LENGTH, &optname);
+
+                        CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
+
+                        CHECKNULL(napi_create_async_work(env, args[1], optname, ExecAsync, ExecComplete, task, &task->m_work));
+                        CHECKNULL(napi_queue_async_work(env, task->m_work));
+                    }
+                }
+            }
+            else
+            {
+                napi_throw_error(env, "args", "Wrong type of arguments");
+            }
+
+            return nullptr;
+        }
+
+        static napi_value importImpl(napi_env env, napi_callback_info info, bool sync) 
+        {
+            napi_value jsthis;
+            size_t argc = 2;
+            napi_value args[2];
+            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
+
+            if (argc != 1 && argc != 2)
+            {
+                napi_throw_error(env, "args", "Wrong number of arguments");
+                return nullptr;
+            }
+
+            Python* obj;
+            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
+
+            napi_valuetype moduleT;
+            CHECKNULL(napi_typeof(env, args[0], &moduleT));
+
+            if (moduleT == napi_string)
+            {
+                if (sync)
+                {
+                    try
+                    {
+                        auto name = convertString(env, args[0]);
+                        auto& py = obj->getInterpreter();
+
+                        GIL gil;
+                        auto handler = py.import(name);
+                        return createHandler(env, &py, handler);
+                    }
+                    catch(const std::exception& e)
+                    {
+                        napi_throw_error(env, "py", e.what());
+                    }
+                }
+                else
+                {
+                    napi_valuetype callbackT;
+                    CHECKNULL(napi_typeof(env, args[1], &callbackT));
+
+                    if (callbackT == napi_function)
+                    {
+                        ImportTask* task = new ImportTask;
+                        task->m_py = &(obj->getInterpreter());
+                        task->m_name = convertString(env, args[0]);
+
+                        napi_value optname;
+                        napi_create_string_utf8(env, "Python::import", NAPI_AUTO_LENGTH, &optname);
+
+                        CHECKNULL(napi_create_reference(env, args[1], 1, &task->m_callback));
+
+                        CHECKNULL(napi_create_async_work(env, args[1], optname, ImportAsync, ImportComplete, task, &task->m_work));
+                        CHECKNULL(napi_queue_async_work(env, task->m_work));
+                    }
+                }
             }
             else
             {
@@ -531,93 +592,6 @@ namespace nodecallspython
             }
         }
 
-        static napi_value import(napi_env env, napi_callback_info info) 
-        {
-            napi_value jsthis;
-            size_t argc = 2;
-            napi_value args[2];
-            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
-
-            if (argc != 2)
-            {
-                napi_throw_error(env, "args", "Must have 2 arguments");
-                return nullptr;
-            }
-
-            Python* obj;
-            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
-
-            napi_valuetype valuetype1;
-            CHECKNULL(napi_typeof(env, args[0], &valuetype1));
-
-            napi_valuetype valuetype2;
-            CHECKNULL(napi_typeof(env, args[1], &valuetype2));
-
-            if (valuetype1 == napi_string && valuetype2 == napi_function)
-            {
-                napi_value optname;
-                napi_create_string_utf8(env, "Python::import", NAPI_AUTO_LENGTH, &optname);
-
-                ImportTask* task = new ImportTask;
-                task->m_py = &(obj->getInterpreter());
-                task->m_name = convertString(env, args[0]);
-                CHECKNULL(napi_create_reference(env, args[1], 1, &task->m_callback));
-
-                CHECKNULL(napi_create_async_work(env, args[1], optname, ImportAsync, ImportComplete, task, &task->m_work));
-                CHECKNULL(napi_queue_async_work(env, task->m_work));
-            }
-            else
-            {
-                napi_throw_error(env, "args", "Wrong type of arguments");
-            }
-
-            return nullptr;
-        }
-
-        static napi_value importSync(napi_env env, napi_callback_info info) 
-        {
-            napi_value jsthis;
-            size_t argc = 1;
-            napi_value args[1];
-            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
-
-            if (argc != 1)
-            {
-                napi_throw_error(env, "args", "Must have 1 arguments");
-                return nullptr;
-            }
-
-            Python* obj;
-            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
-
-            napi_valuetype valuetype;
-            CHECKNULL(napi_typeof(env, args[0], &valuetype));
-
-            if (valuetype == napi_string)
-            {
-                auto name = convertString(env, args[0]);
-                auto& py = obj->getInterpreter();
-
-                std::string handler;
-                try
-                {
-                    GIL gil;
-                    handler = py.import(name);
-                    return createHandler(env, &py, handler);
-                }
-                catch(const std::exception& e)
-                {
-                    napi_throw_error(env, "py", e.what());
-                }
-            }
-            else
-            {
-                napi_throw_error(env, "args", "Wrong type of arguments");
-            }
-
-            return nullptr;
-        }
-
         static std::string convertString(napi_env env, napi_value value)
         {
             size_t length = 0;
@@ -627,29 +601,54 @@ namespace nodecallspython
             return result;
         }
 
+        static napi_value import(napi_env env, napi_callback_info info) 
+        {
+            return importImpl(env, info, false); 
+        }
+
+        static napi_value importSync(napi_env env, napi_callback_info info) 
+        {
+            return importImpl(env, info, true); 
+        }
+
         static napi_value call(napi_env env, napi_callback_info info) 
         {
-            return callImpl(env, info, true); 
+            return callImpl(env, info, true, false); 
         }
 
         static napi_value callSync(napi_env env, napi_callback_info info) 
         {
-            return callImplSync(env, info, true); 
+            return callImpl(env, info, true, true); 
         }
 
         static napi_value exec(napi_env env, napi_callback_info info)
         {
-            return execImpl(env, info);
+            return execImpl(env, info, false, false);
         }
 
-        static napi_value newclass(napi_env env, napi_callback_info info) 
+        static napi_value execSync(napi_env env, napi_callback_info info)
         {
-            return callImpl(env, info, false); 
+            return execImpl(env, info, false, true);
         }
 
-        static napi_value newclassSync(napi_env env, napi_callback_info info) 
+        static napi_value eval(napi_env env, napi_callback_info info)
         {
-            return callImplSync(env, info, false); 
+            return execImpl(env, info, true, false);
+        }
+
+        static napi_value evalSync(napi_env env, napi_callback_info info)
+        {
+            return execImpl(env, info, true, true);
+        }
+
+        static napi_value newClass(napi_env env, napi_callback_info info) 
+        {
+            return callImpl(env, info, false, false); 
+        }
+
+        static napi_value newClassSync(napi_env env, napi_callback_info info) 
+        {
+            return callImpl(env, info, false, true); 
         }
 
         static napi_value fixlink(napi_env env, napi_callback_info info)

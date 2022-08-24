@@ -21,6 +21,12 @@ export interface Interpreter
     call: (module: PyModule | PyObject, functionName: string, ...args: any[]) => Promise<unknown>;
     callSync: (module: PyModule | PyObject, functionName: string, ...args: any[]) => unknown;
 
+    exec: (module: PyModule | PyObject, codeToRun: string) => Promise<unknown>;
+    execSync: (module: PyModule | PyObject, codeToRun: string) => unknown;
+
+    eval: (module: PyModule | PyObject, codeToRun: string) => Promise<unknown>;
+    evalSync: (module: PyModule | PyObject, codeToRun: string) => unknown;
+
     fixlink: (fileName: string) => void;
 
     addImportPath: (path: string) => void;

@@ -97,6 +97,11 @@ it("nodecallspython tests", async () => {
     expect(py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).toEqual([13.2, 61.5, 12.6, 49.2]);
     await expect(py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).resolves.toEqual([13.2, 61.5, 12.6, 49.2]);
 
+    await expect(py.exec(pymodule, "concatenate(\"aaa\", \"bbb\")")).resolves.toEqual(undefined);
+    expect(py.execSync(pymodule, "concatenate(\"aaa\", \"bbb\")")).toEqual(undefined);
+
+    await expect(py.eval(pymodule, "concatenate(\"aaa\", \"bbb\")")).resolves.toEqual("aaabbb");
+    expect(py.evalSync(pymodule, "concatenate(\"aaa\", \"bbb\")")).toEqual("aaabbb");
 });
 
 it("nodecallspython async import", () => {
@@ -121,7 +126,13 @@ it("nodecallspython errors", async () => {
 
     await expect(py.import(path.join(__dirname, "error.py"))).rejects.toEqual("No module named 'error'");
     expect(() => py.importSync(path.join(__dirname, "error.py"))).toThrow("No module named 'error'");
-    
+
+    await expect(py.exec(pymodule, "dump(12)")).rejects.toEqual("dump() missing 1 required positional argument: 'b'");
+    expect(() => py.execSync(pymodule, "dump(12)")).toThrow("dump() missing 1 required positional argument: 'b'");
+
+    await expect(py.eval(pymodule, "dump(12)")).rejects.toEqual("dump() missing 1 required positional argument: 'b'");
+    expect(() => py.evalSync(pymodule, "dump(12)")).toThrow("dump() missing 1 required positional argument: 'b'");
+
     async function testError(func, end = 1000)
     {
         let count = 0;
