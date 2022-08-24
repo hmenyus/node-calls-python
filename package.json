@@ -1,6 +1,6 @@
 {
   "name": "node-calls-python",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "license": "MIT",
   "description": "This module lets you run python code inside node without spawning new processes",
   "authors": [
@@ -27,6 +27,7 @@
   ],
   "files": [
     "binding.gyp",
+    "index.d.ts",
     "src/",
     "test/",
     "scripts/"
