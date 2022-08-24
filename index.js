@@ -90,6 +90,18 @@ class Interpreter
         return this.py.fixlink(filename);
     }
 
+    exec(handler, code)
+    {
+        return new Promise(function(resolve, reject) {
+            this.py.exec(handler, code, function(result, error) {
+                if (error)
+                    reject(error);
+                else
+                    resolve(result);
+            });
+        }.bind(this));
+    }
+
     addImportPath(path)
     {
         return this.py.addImportPath(path);

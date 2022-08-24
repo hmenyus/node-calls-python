@@ -52,6 +52,20 @@ namespace nodecallspython
         }
     };
 
+    struct ExecTask : public BaseTask
+    {
+        std::string m_handler;
+        std::string m_code;
+
+        CPyObject m_result;
+
+        ~ExecTask()
+        {
+            GIL gil;
+            m_result = CPyObject();
+        }
+    };
+
     class Handler
     {
         PyInterpreter* m_py;
@@ -106,6 +120,20 @@ namespace nodecallspython
                 task->m_result = task->m_py->call(task->m_handler, task->m_func, task->m_args);
             else
                 task->m_handler = task->m_py->create(task->m_handler, task->m_func, task->m_args);
+        }
+        catch(const std::exception& e)
+        {
+            task->m_error = e.what();
+        }
+    }
+
+    static void ExecAsync(napi_env env, void* data)
+    {
+        auto task = static_cast<ExecTask*>(data);
+        GIL gil;
+        try
+        {
+            task->m_result = task->m_py->exec(task->m_handler, task->m_code);
         }
         catch(const std::exception& e)
         {
@@ -199,6 +227,30 @@ namespace nodecallspython
             CHECK(napi_call_function(env, global, callback, 1, &args, &result));
         }
     }
+
+    static void ExecComplete(napi_env env, napi_status status, void* data)
+    {
+        std::unique_ptr<ExecTask> task(static_cast<ExecTask*>(data));
+        task->m_env = env;
+
+        if (!task->m_error.empty())
+            handleError(env, *task);
+        else
+        {
+            napi_value global;
+            CHECK(napi_get_global(env, &global));
+
+            napi_value args;
+            GIL gil;
+            args = task->m_py->convert(env, *task->m_result);
+
+            napi_value callback;
+            CHECK(napi_get_reference_value(env, task->m_callback, &callback));
+
+            napi_value result;
+            CHECK(napi_call_function(env, global, callback, 1, &args, &result));
+        }
+    }
     
     class Python
     {
@@ -218,11 +270,12 @@ namespace nodecallspython
                 DECLARE_NAPI_METHOD("create", newclass),
                 DECLARE_NAPI_METHOD("createSync", newclassSync),
                 DECLARE_NAPI_METHOD("fixlink", fixlink),
+                DECLARE_NAPI_METHOD("exec", exec),
                 DECLARE_NAPI_METHOD("addImportPath", addImportPath)
             };
 
             napi_value cons;
-            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 8, properties, &cons));
+            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 9, properties, &cons));
 
             CHECKNULL(napi_create_reference(env, cons, 1, &constructor));
 
@@ -375,6 +428,62 @@ namespace nodecallspython
 
             return nullptr;
         }
+
+        static napi_value execImpl(napi_env env, napi_callback_info info)
+        {
+            napi_value jsthis;
+            size_t argc = 3;
+            napi_value args[3];
+            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
+
+            if (argc < 3)
+            {
+                napi_throw_error(env, "args", "Wrong type of arguments");
+                return nullptr;
+            }
+
+            Python* obj;
+            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
+
+            napi_valuetype handlerT;
+            CHECKNULL(napi_typeof(env, args[0], &handlerT));
+
+            napi_valuetype codeToExecT;
+            CHECKNULL(napi_typeof(env, args[1], &codeToExecT));
+
+            napi_valuetype callbackT;
+            CHECKNULL(napi_typeof(env, args[argc - 1], &callbackT));
+
+            if (handlerT == napi_object && codeToExecT == napi_string && callbackT == napi_function)
+            {
+                napi_value optname;
+                napi_create_string_utf8(env, "Python::import", NAPI_AUTO_LENGTH, &optname);
+
+                ExecTask* task = new ExecTask;
+                task->m_py = &(obj->getInterpreter());
+
+                napi_value key;
+                CHECKNULL(napi_create_string_utf8(env, "handler", NAPI_AUTO_LENGTH, &key));
+
+                napi_value value;
+                CHECKNULL(napi_get_property(env, args[0], key, &value));
+
+                task->m_handler = convertString(env, value);
+                task->m_code = convertString(env, args[1]);
+
+                CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
+
+                CHECKNULL(napi_create_async_work(env, args[1], optname, ExecAsync, ExecComplete, task, &task->m_work));
+                CHECKNULL(napi_queue_async_work(env, task->m_work));
+            }
+            else
+            {
+                napi_throw_error(env, "args", "Wrong type of arguments");
+            }
+
+            return nullptr;
+        }
+
     private:
         std::unique_ptr<PyInterpreter> m_py;
         
@@ -526,6 +635,11 @@ namespace nodecallspython
         static napi_value callSync(napi_env env, napi_callback_info info) 
         {
             return callImplSync(env, info, true); 
+        }
+
+        static napi_value exec(napi_env env, napi_callback_info info)
+        {
+            return execImpl(env, info);
         }
 
         static napi_value newclass(napi_env env, napi_callback_info info) 
