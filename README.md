@@ -68,10 +68,10 @@ Then to call this function directly you can do this in Node
 ```javascript
 const nodecallspython = require("node-calls-python");
 
-let py = nodecallspython.interpreter;
+const py = nodecallspython.interpreter;
 
 py.import("test.py").then(async function(pymodule) {
-    let result = await py.call(pymodule, "multiple", [1, 2, 3, 4], [2, 3, 4, 5]);
+    const result = await py.call(pymodule, "multiple", [1, 2, 3, 4], [2, 3, 4, 5]);
     console.log(result);
 });
 ```
@@ -80,10 +80,10 @@ Or to call this function by using the synchronous version
 ```javascript
 const nodecallspython = require("node-calls-python");
 
-let py = nodecallspython.interpreter;
+const py = nodecallspython.interpreter;
 
 py.import("test.py").then(async function(pymodule) {
-    let result = py.callSync(pymodule, "multiple", [1, 2, 3, 4], [2, 3, 4, 5]);
+    const result = py.callSync(pymodule, "multiple", [1, 2, 3, 4], [2, 3, 4, 5]);
     console.log(result);
 });
 ```
@@ -107,11 +107,11 @@ Then to instance the class directly in Node
 ```javascript
 const nodecallspython = require("node-calls-python");
 
-let py = nodecallspython.interpreter;
+const py = nodecallspython.interpreter;
 
 py.import("test.py").then(async function(pymodule) {
-    let pyobj = await py.create(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
-    let result = await py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]);
+    const pyobj = await py.create(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
+    const result = await py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]);
 });
 ```
 
@@ -119,12 +119,37 @@ Or to instance the class synchronously and directly in Node
 ```javascript
 const nodecallspython = require("node-calls-python");
 
-let py = nodecallspython.interpreter;
+const py = nodecallspython.interpreter;
 
 py.import("test.py").then(async function(pymodule) {
-    let pyobj = py.createSync(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
-    let result = await py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]); // you can use async version (call) as well
+    const pyobj = py.createSync(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
+    const result = await py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]); // you can use async version (call) as well
 });
+```
+
+### Running python code
+```javascript
+const nodecallspython = require("node-calls-python");
+
+const py = nodecallspython.interpreter;
+
+py.import("test.py").then(async function(pymodule) {
+    await py.exec(pymodule, "run_my_code(1, 2, 3)"); // exec will run any python code but the return value is not propagated
+    const result = await py.eval(pymodule, "run_my_code(1, 2, 3)"); // result will hold the output of run_my_code
+    console.log(result);
+});
+```
+
+Running python code synchronously
+```javascript
+const nodecallspython = require("node-calls-python");
+
+const py = nodecallspython.interpreter;
+
+const pymodule = py.importSync("test.py");
+await py.execSync(pymodule, "run_my_code(1, 2, 3)"); // exec will run any python code but the return value is not propagated
+const result = py.evalSync(pymodule, "run_my_code(1, 2, 3)"); // result will hold the output of run_my_code
+console.log(result);
 ```
 
 ### Doing some ML with Python and Node
@@ -153,12 +178,12 @@ Then you can do this in Node
 ```javascript
 const nodecallspython = require("node-calls-python");
 
-let py = nodecallspython.interpreter;
+const py = nodecallspython.interpreter;
 
 py.import("logreg.py")).then(async function(pymodule) { // import the python module
-    let logreg = await py.create(pymodule, "LogReg", "iris"); // create the instance of the classifier
+    const logreg = await py.create(pymodule, "LogReg", "iris"); // create the instance of the classifier
 
-    let predict = await py.call(logreg, "predict", [[1.4, 5.5, 1.2, 4.4]]); // call predict
+    const predict = await py.call(logreg, "predict", [[1.4, 5.5, 1.2, 4.4]]); // call predict
     console.log(predict);
 });
 ```
@@ -171,7 +196,7 @@ You can fix it by passing the name of your libpython shared library to fixlink
 ```javascript
 const nodecallspython = require("node-calls-python");
 
-let py = nodecallspython.interpreter;
+const py = nodecallspython.interpreter;
 py.fixlink('libpython3.7m.so');
 ```
 
