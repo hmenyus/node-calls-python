@@ -30,7 +30,7 @@
                     ],
                     "link_settings": {
                         "libraries": [
-                            "<!(python3-config --ldflags --embed)",
+                            "<!(node ./scripts/pylink.js)",
                             "<!(node ./scripts/rpaths.js)"
                         ]
                     },
@@ -43,7 +43,7 @@
                     ],
                     "link_settings": {
                         "libraries": [
-                            "<!(python3-config --ldflags --embed)"
+                            "<!(node ./scripts/pylink.js)"
                         ]
                     },
                     'xcode_settings': {

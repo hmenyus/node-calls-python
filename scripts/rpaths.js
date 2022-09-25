@@ -1,6 +1,15 @@
 const { execSync } = require("child_process");
 
-const stdout = execSync("python3-config --ldflags --embed");
+let stdout;
+try
+{
+    stdout = execSync("python3-config --ldflags --embed");
+}
+catch(e)
+{
+    stdout = execSync("python3-config --ldflags");
+}
+
 if (stdout)
 {
     const splits = stdout.toString().trim().split(" ");
