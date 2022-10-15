@@ -5,29 +5,65 @@ const nodecallspython = require("./build/Release/nodecallspython");
 
 class Interpreter
 {
+    loadPython(dir)
+    {
+        let found = false;
+        const debug = process.env.NODECALLSPYTHON_DEBUG !== undefined;
+        if (debug)
+            console.log("Loading python from " + dir);
+            
+        if (fs.existsSync(dir))
+        {
+            fs.readdirSync(dir).forEach(file => {
+                if (file.match(/libpython.*\.so/))
+                {
+                    try
+                    {
+                        const filename = path.join(dir, file);
+                        if (debug)
+                            console.log("Running fixlink on " + filename);
+
+                        this.fixlink(filename);
+                        found = true;
+                    }
+                    catch(e)
+                    {
+                        console.error(e);
+                    }
+                }
+            });
+        }
+
+        if (!found && debug)
+            console.log("Not found");
+
+        return found;
+    }
+
     constructor()
     {
         this.py = new nodecallspython.PyInterpreter();
         if (process.platform === "linux")
         {
             const stdout = execSync("python3-config --configdir");
+            let found = false;
             if (stdout)
             {
                 const dir = stdout.toString().trim();
-                if (fs.existsSync(dir))
+                const res = this.loadPython(dir);
+                if (res)
+                    found = true;
+            }
+
+            if (!found)
+            {
+                const stdout = execSync("python3-config --ldflags");
+                if (stdout)
                 {
-                    fs.readdirSync(dir).forEach(file => {
-                        if (file.match(/libpython.*\.so/))
-                        {
-                            try
-                            {
-                                this.fixlink(path.join(dir, file));
-                            }
-                            catch(e)
-                            {
-                                console.error(e);
-                            }
-                        }
+                    const split = stdout.toString().trim().split(" ");
+                    split.forEach(s => {
+                        if (s.startsWith("-L"))
+                            this.loadPython(s.substring(2));
                     });
                 }
             }
