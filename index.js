@@ -7,11 +7,11 @@ class Interpreter
 {
     loadPython(dir)
     {
-        let found = false;
         const debug = process.env.NODECALLSPYTHON_DEBUG !== undefined;
         if (debug)
             console.log("Loading python from " + dir);
-            
+
+        let found = false;
         if (fs.existsSync(dir))
         {
             fs.readdirSync(dir).forEach(file => {
