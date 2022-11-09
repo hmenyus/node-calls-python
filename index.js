@@ -15,7 +15,7 @@ class Interpreter
         if (fs.existsSync(dir))
         {
             fs.readdirSync(dir).forEach(file => {
-                if (file.match(/libpython.*\.so/))
+                if (file.match(/libpython3.*\.so/))
                 {
                     try
                     {
