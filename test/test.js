@@ -1,5 +1,6 @@
 const nodecallspython = require("../");
 const path = require("path");
+const { Worker } = require('worker_threads');
 
 let py = nodecallspython.interpreter;
 let pyfile = path.join(__dirname, "nodetest.py");
@@ -112,6 +113,10 @@ it("nodecallspython errors", async () => {
     await expect(py.call(pymodule, "error")).rejects.toEqual("module 'nodetest' has no attribute 'error'");
     expect(() => py.callSync(pymodule, "error")).toThrow("module 'nodetest' has no attribute 'error'");
 
+    expect(() => py.callSync(pymodule, function(){})).toThrow("Wrong type of arguments");
+    expect(() => py.callSync(pymodule, "dump", function(){})).toThrow("Invalid parameter: unknown type");
+    await expect(py.call(pymodule, "dump", function(){})).rejects.toThrow("Invalid parameter: unknown type");
+
     await expect(py.call(pymodule, "dump")).rejects.toEqual("dump() missing 2 required positional arguments: 'a' and 'b'");
     expect(() => py.callSync(pymodule, "dump")).toThrow("dump() missing 2 required positional arguments: 'a' and 'b'");
 
@@ -123,15 +128,21 @@ it("nodecallspython errors", async () => {
 
     await expect(py.create(pymodule, "Calculator2")).rejects.toEqual("module 'nodetest' has no attribute 'Calculator2'");
     expect(() => py.createSync(pymodule, "Calculator2")).toThrow("module 'nodetest' has no attribute 'Calculator2'");
+    expect(() => py.createSync(pymodule, "Calculator2", function(){})).toThrow("Invalid parameter: unknown type");
+    await expect(py.create(pymodule, "Calculator2", function(){})).rejects.toThrow("Invalid parameter: unknown type");
 
     await expect(py.import(path.join(__dirname, "error.py"))).rejects.toEqual("No module named 'error'");
     expect(() => py.importSync(path.join(__dirname, "error.py"))).toThrow("No module named 'error'");
 
     await expect(py.exec(pymodule, "dump(12)")).rejects.toEqual("dump() missing 1 required positional argument: 'b'");
     expect(() => py.execSync(pymodule, "dump(12)")).toThrow("dump() missing 1 required positional argument: 'b'");
+    await expect(py.exec(pymodule, function(){})).rejects.toThrow("Wrong type of arguments");
+    expect(() => py.execSync(pymodule, function(){})).toThrow("Wrong type of arguments");
 
     await expect(py.eval(pymodule, "dump(12)")).rejects.toEqual("dump() missing 1 required positional argument: 'b'");
     expect(() => py.evalSync(pymodule, "dump(12)")).toThrow("dump() missing 1 required positional argument: 'b'");
+    await expect(py.eval(pymodule, function(){})).rejects.toThrow("Wrong type of arguments");
+    expect(() => py.evalSync(pymodule, function(){})).toThrow("Wrong type of arguments");
 
     async function testError(func, end = 1000)
     {
@@ -182,4 +193,9 @@ it("nodecallspython errors", async () => {
     testErrorSync(() => { return py.createSync(pymodule, "Calculator2"); });
 
     testErrorSync(() => { return py.importSync(path.join(__dirname, "error.py")); }, 10);
+});
+
+it("nodecallspython worker", () => {
+    const worker1 = new Worker(path.join(__dirname, "worker.js"));
+    const worker2 = new Worker(path.join(__dirname, "worker.js"));
 });

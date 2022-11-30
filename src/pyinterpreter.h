@@ -31,7 +31,8 @@ namespace nodecallspython
     {
         PyThreadState* m_state;
         std::unordered_map<std::string, CPyObject> m_objs;
-        static bool inited;
+        static std::mutex m_mutex;
+        static bool m_inited;
     public:
         PyInterpreter();
 
