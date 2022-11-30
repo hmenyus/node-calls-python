@@ -73,12 +73,19 @@ class Interpreter
     import(filename)
     {
         return new Promise(function(resolve, reject) {
-            this.py.import(filename, function(handler, error) {
-                if (handler)
-                    resolve(handler);
-                else
-                    reject(error);
-            });
+            try
+            {
+                this.py.import(filename, function(handler, error) {
+                    if (handler)
+                        resolve(handler);
+                    else
+                        reject(error);
+                });
+            }
+            catch(e)
+            {
+                reject(e);
+            }
         }.bind(this));
     }
 
@@ -90,12 +97,19 @@ class Interpreter
     call(handler, func, ...args)
     {
         return new Promise(function(resolve, reject) {
-            this.py.call(handler, func, ...args, function(result, error) {
-                if (error)
-                    reject(error);
-                else
-                    resolve(result);
-            });
+            try
+            {
+                this.py.call(handler, func, ...args, function(result, error) {
+                    if (error)
+                        reject(error);
+                    else
+                        resolve(result);
+                });
+            }
+            catch(e)
+            {
+                reject(e);
+            }
         }.bind(this));
     }
 
@@ -107,12 +121,19 @@ class Interpreter
     create(handler, func, ...args)
     {
         return new Promise(function(resolve, reject) {
-            this.py.create(handler, func, ...args, function(result, error) {
-                if (error)
-                    reject(error);
-                else
-                    resolve(result);
-            });
+            try
+            {
+                this.py.create(handler, func, ...args, function(result, error) {
+                    if (error)
+                        reject(error);
+                    else
+                        resolve(result);
+                });
+            }
+            catch(e)
+            {
+                reject(e);
+            }
         }.bind(this));
     }
 
@@ -129,12 +150,19 @@ class Interpreter
     exec(handler, code)
     {
         return new Promise(function(resolve, reject) {
-            this.py.exec(handler, code, function(result, error) {
-                if (error)
-                    reject(error);
-                else
-                    resolve(result);
-            });
+            try
+            {
+                this.py.exec(handler, code, function(result, error) {
+                    if (error)
+                        reject(error);
+                    else
+                        resolve(result);
+                });
+            }
+            catch(e)
+            {
+                reject(e);
+            }
         }.bind(this));
     }
 
@@ -146,12 +174,19 @@ class Interpreter
     eval(handler, code)
     {
         return new Promise(function(resolve, reject) {
-            this.py.eval(handler, code, function(result, error) {
-                if (error)
-                    reject(error);
-                else
-                    resolve(result);
-            });
+            try
+            {
+                this.py.eval(handler, code, function(result, error) {
+                    if (error)
+                        reject(error);
+                    else
+                        resolve(result);
+                });
+            }
+            catch(e)
+            {
+                reject(e);
+            }
         }.bind(this));
     }
 

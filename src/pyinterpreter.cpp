@@ -7,7 +7,8 @@
 using namespace nodecallspython;
 
 std::mutex nodecallspython::GIL::m_mutex;
-bool nodecallspython::PyInterpreter::inited = false;
+bool nodecallspython::PyInterpreter::m_inited = false;
+std::mutex nodecallspython::PyInterpreter::m_mutex;
 
 namespace
 {
@@ -19,7 +20,9 @@ namespace
 
 PyInterpreter::PyInterpreter() : m_state(nullptr)
 {
-    if (!inited)
+    std::lock_guard<std::mutex> l(m_mutex);
+
+    if (!m_inited)
     {
         Py_InitializeEx(0);
 
@@ -35,7 +38,7 @@ PyInterpreter::PyInterpreter() : m_state(nullptr)
         if (!std::getenv("NODE_CALLS_PYTHON_IGNORE_SIGINT"))
             PyOS_setsig(SIGINT, ::signal_handler_int);
 
-        inited = true;
+        m_inited = true;
     }
 }
 
@@ -49,7 +52,7 @@ PyInterpreter::~PyInterpreter()
     }
 }
 
-#define CHECK(func) { if (func != napi_ok) { napi_throw_error(env, "error", #func); return nullptr; } }
+#define CHECK(func) { auto res = func; if (res != napi_ok) { throw std::runtime_error(std::string(#func) + " returned with an error: " + std::to_string(static_cast<int>(func))); } }
 
 namespace
 {
@@ -69,7 +72,7 @@ namespace
                 if (res == napi_ok)
                     return PyLong_FromLong(i);
                 else
-                    return nullptr;
+                    throw std::runtime_error("Invalid parameter: unknown type");
             }
             else
                 return PyLong_FromLong(i);
@@ -160,7 +163,7 @@ namespace
         else
             return handleInteger(env, arg);
 
-        return nullptr;
+        throw std::runtime_error("Invalid parameter: unknown type");
     }
 }
 
@@ -175,7 +178,7 @@ CPyObject PyInterpreter::convert(napi_env env, const std::vector<napi_value>& ar
     {
         auto cparams = ::convert(env, args[i]);
         if (!cparams)
-            return CPyObject();
+            throw std::runtime_error("Cannot convert #" + std::to_string(i + 1) + " argument");
 
         PyTuple_SetItem(*params, i, cparams);
     }
@@ -403,7 +406,7 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
     auto it = m_objs.find(handler);
 
     if(it == m_objs.end())
-        return CPyObject();
+        throw std::runtime_error("Cannot find handler: " + handler);
 
     PyErr_Clear();
     CPyObject pyFunc = PyObject_GetAttrString(*(it->second), func.c_str());
@@ -413,7 +416,7 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
         if (!*pyResult)
         {
             handleException();
-            return CPyObject();
+            throw std::runtime_error("Unknown python error");
         }
 
         return pyResult;
@@ -421,7 +424,7 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
     else
         handleException();
     
-    return CPyObject();
+    throw std::runtime_error("Unknown python error");
 }
 
 CPyObject PyInterpreter::exec(const std::string& handler, const std::string& code, bool eval)
@@ -429,7 +432,7 @@ CPyObject PyInterpreter::exec(const std::string& handler, const std::string& cod
     auto it = m_objs.find(handler);
 
     if(it == m_objs.end())
-        return CPyObject();
+        throw std::runtime_error("Cannot find handler: " + handler);
 
     auto localsPtr = PyModule_GetDict(*(it->second));
     auto globals = CPyObject{PyDict_New()};
@@ -439,7 +442,7 @@ CPyObject PyInterpreter::exec(const std::string& handler, const std::string& cod
     if (!*pyResult)
     {
         handleException();
-        return CPyObject();
+        throw std::runtime_error("Unknown python error");
     }
 
     return pyResult;
