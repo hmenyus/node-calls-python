@@ -70,7 +70,7 @@ const nodecallspython = require("node-calls-python");
 
 const py = nodecallspython.interpreter;
 
-py.import("test.py").then(async function(pymodule) {
+py.import("path/to/test.py").then(async function(pymodule) {
     const result = await py.call(pymodule, "multiple", [1, 2, 3, 4], [2, 3, 4, 5]);
     console.log(result);
 });
@@ -82,7 +82,7 @@ const nodecallspython = require("node-calls-python");
 
 const py = nodecallspython.interpreter;
 
-py.import("test.py").then(async function(pymodule) {
+py.import("path/to/test.py").then(async function(pymodule) {
     const result = py.callSync(pymodule, "multiple", [1, 2, 3, 4], [2, 3, 4, 5]);
     console.log(result);
 });
@@ -109,7 +109,7 @@ const nodecallspython = require("node-calls-python");
 
 const py = nodecallspython.interpreter;
 
-py.import("test.py").then(async function(pymodule) {
+py.import("path/to/test.py").then(async function(pymodule) {
     const pyobj = await py.create(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
     const result = await py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]);
 });
@@ -121,7 +121,7 @@ const nodecallspython = require("node-calls-python");
 
 const py = nodecallspython.interpreter;
 
-py.import("test.py").then(async function(pymodule) {
+py.import("path/to/test.py").then(async function(pymodule) {
     const pyobj = py.createSync(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
     const result = await py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4]); // you can use async version (call) as well
 });
@@ -133,7 +133,7 @@ const nodecallspython = require("node-calls-python");
 
 const py = nodecallspython.interpreter;
 
-py.import("test.py").then(async function(pymodule) {
+py.import("path/to/test.py").then(async function(pymodule) {
     await py.exec(pymodule, "run_my_code(1, 2, 3)"); // exec will run any python code but the return value is not propagated
     const result = await py.eval(pymodule, "run_my_code(1, 2, 3)"); // result will hold the output of run_my_code
     console.log(result);
@@ -146,7 +146,7 @@ const nodecallspython = require("node-calls-python");
 
 const py = nodecallspython.interpreter;
 
-const pymodule = py.importSync("test.py");
+const pymodule = py.importSync("path/to/test.py");
 await py.execSync(pymodule, "run_my_code(1, 2, 3)"); // exec will run any python code but the return value is not propagated
 const result = py.evalSync(pymodule, "run_my_code(1, 2, 3)"); // result will hold the output of run_my_code
 console.log(result);
