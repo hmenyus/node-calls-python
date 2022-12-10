@@ -6,13 +6,13 @@ namespace nodecallspython
     class CPyObject
     {
     private:
-	    PyObject* m_py;
+        PyObject* m_py;
     public:
-	    CPyObject() : m_py(nullptr) {}
+        CPyObject() : m_py(nullptr) {}
 
-    	CPyObject(PyObject* py) : m_py(py) {}
+        CPyObject(PyObject* py) : m_py(py) {}
 
-    	~CPyObject()
+        ~CPyObject()
         {
             if (m_py)
                 Py_DECREF(m_py);
@@ -24,9 +24,9 @@ namespace nodecallspython
         }
 
         operator bool()
-	    {
-		    return m_py ? true : false;
-	    }
+        {
+            return m_py ? true : false;
+        }
 
         CPyObject(const CPyObject& other)
         {
