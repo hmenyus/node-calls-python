@@ -377,9 +377,7 @@ std::string PyInterpreter::import(const std::string& modulename)
         auto dir = name.substr(0, pos);
         name = name.substr(pos + 1);
 
-        auto sysPath = PySys_GetObject((char*)"path");
-        CPyObject dirName = PyUnicode_FromString(dir.c_str());
-        PyList_Append(sysPath, *dirName);
+        addImportPath(dir);
     }
 
     auto len = name.length();
@@ -469,7 +467,7 @@ void PyInterpreter::release(const std::string& handler)
 
 void PyInterpreter::addImportPath(const std::string& path)
 {
-    auto sysPath = PySys_GetObject((char*)"path");
+    auto sysPath = PySys_GetObject("path");
     CPyObject dirName = PyUnicode_FromString(path.c_str());
     PyList_Insert(sysPath, 0, *dirName);
 }
