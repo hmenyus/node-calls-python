@@ -1,13 +1,13 @@
 export class PyModule
 {
     private _type: 'PyModule';
-    private constructor() {}
+    private constructor();
 }
 
 export class PyObject
 {
     private _type: 'PyObject';
-    private constructor() {}
+    private constructor();
 }
 
 export interface Interpreter
