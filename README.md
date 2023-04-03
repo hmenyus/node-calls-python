@@ -1,17 +1,18 @@
 
 ![node-calls-python](https://github.com/hmenyus/node-calls-python/blob/master/logo.png)
 
-# node-calls-python - call Python from NodeJS directly in-process without spawning processes
+# node-calls-python - call Python from Node.js directly in-process without spawning processes
 
 ## Suitable for running your ML or deep learning models from Node directly
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.me/hmenyus)
 
 ## Motivation
-Creating new processes every time you want to run Python code could be a major overhead and can lead to significant performance penalties.
-If the execution time of your Python code is less than creating a new process, you will see significant performance problems because your NodeJS code will keep creating new processes instead of executing your Python code.
-Suppose you have a few numpy calls in Python: do you want to create a new process for that? I guess your answer is no. 
-In this case, running the Python code in-process is a much better solution.
+Current solutions spawn a new process whenever you want to run Python code in Node.js and communicate via IPC using sockets, stdin/stdout, etc.
+But creating new processes every time you want to run Python code could be a major overhead and can lead to significant performance penalties.
+If the execution time of your Python code is less than creating a new process, you will see significant performance problems because your Node.js code will keep creating new processes instead of executing your Python code.
+Suppose you have a few NumPy calls in Python: do you want to create a new process for that? I guess your answer is no. 
+In this case, running the Python code in-process is a much better solution because using the embedded Python interpreter is much faster than creating new processes and does not require any IPC to pass the data around. The data can stay in memory and requires only some conversions between Python and Node types (using the N-API and Python C API).
 
 ## Installation
 ```
@@ -49,7 +50,7 @@ npm install --global --production windows-build-tools
 npm install -g node-gyp
 ```
 
-### **Mac**: install XCode from AppStore, [NodeJS](https://nodejs.org/en/download/) and [Python](https://www.python.org/downloads/)
+### **Mac**: install XCode from AppStore, [Node.js](https://nodejs.org/en/download/) and [Python](https://www.python.org/downloads/)
 ```
 npm install node-calls-python
 ```
