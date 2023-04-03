@@ -7,6 +7,12 @@
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.me/hmenyus)
 
+## Motivation
+Creating new processes every time you want to run Python code could be a major overhead and can lead to significant performance penalties.
+If the execution time of your Python code is less than creating a new process, you will see significant performance problems because your NodeJS code will keep creating new processes instead of executing your Python code.
+Suppose you have a few numpy calls in Python: do you want to create a new process for that? I guess your answer is no. 
+In this case, running the Python code in-process is a much better solution.
+
 ## Installation
 ```
 npm install node-calls-python
