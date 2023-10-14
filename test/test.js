@@ -199,3 +199,12 @@ it("nodecallspython worker", () => {
     const worker1 = new Worker(path.join(__dirname, "worker.js"));
     const worker2 = new Worker(path.join(__dirname, "worker.js"));
 });
+
+it("nodecallspython import", async () => {
+    let pymodule = py.importSync(pyfile);
+    expect(py.importSync(pyfile, false)).not.toEqual(pymodule);
+    expect(py.importSync(pyfile, true)).not.toEqual(pymodule);
+
+    await expect(py.import(pyfile, false)).resolves.not.toEqual(pymodule);
+    await expect(py.import(pyfile, true)).resolves.not.toEqual(pymodule);
+});

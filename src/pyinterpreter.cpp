@@ -365,7 +365,7 @@ namespace
     }
 }
 
-std::string PyInterpreter::import(const std::string& modulename)
+std::string PyInterpreter::import(const std::string& modulename, bool allowReimport)
 {
     auto name = modulename;
     auto pos = name.find_last_of("\\");
@@ -386,17 +386,27 @@ std::string PyInterpreter::import(const std::string& modulename)
     
     PyErr_Clear();
     CPyObject pyModule = PyImport_ImportModule(name.c_str());
-
-    if(pyModule)
+    if (!pyModule)
     {
-        auto name = getUUID(true, pyModule);
-        m_objs[name] = pyModule;
-        return name;
-    }
-    else
         handleException();
-        
-    return std::string();
+        return {};
+    }
+
+    auto it = m_imports.find(*pyModule);
+    if (it != m_imports.end() && allowReimport)
+    {
+        pyModule = PyImport_ReloadModule(*pyModule);
+        if (!pyModule)
+        {
+            handleException();
+            return {};
+        }
+    }
+
+    auto uuid = getUUID(true, pyModule);
+    m_objs[uuid] = pyModule;
+    m_imports[*pyModule] = uuid;
+    return uuid;
 }
 
 CPyObject PyInterpreter::call(const std::string& handler, const std::string& func, CPyObject& args)

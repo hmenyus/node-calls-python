@@ -33,6 +33,7 @@ namespace nodecallspython
     {
         std::string m_name;
         std::string m_handler;
+        bool m_allowReimport;
     };
 
     struct CallTask : public BaseTask
@@ -148,7 +149,7 @@ namespace nodecallspython
         GIL gil;
         try
         {
-            task->m_handler = task->m_py->import(task->m_name);
+            task->m_handler = task->m_py->import(task->m_name, task->m_allowReimport);
         } catch(const std::exception& e)
         {
             task->m_error = e.what();
@@ -484,11 +485,11 @@ namespace nodecallspython
             try
             {
                 napi_value jsthis;
-                size_t argc = 2;
-                napi_value args[2];
+                size_t argc = 3;
+                napi_value args[3];
                 CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
 
-                if (argc != 1 && argc != 2)
+                if (argc != 2 && argc != 3)
                 {
                     napi_throw_error(env, "args", "Wrong number of arguments");
                     return nullptr;
@@ -500,34 +501,41 @@ namespace nodecallspython
                 napi_valuetype moduleT;
                 CHECKNULL(napi_typeof(env, args[0], &moduleT));
 
-                if (moduleT == napi_string)
+                napi_valuetype allowReimportT;
+                CHECKNULL(napi_typeof(env, args[1], &allowReimportT));
+
+                if (moduleT == napi_string && allowReimportT == napi_boolean)
                 {
+                    auto allowReimport = false;
+                    CHECKNULL(napi_get_value_bool(env, args[1], &allowReimport));
+
                     if (sync)
                     {
                         GIL gil;
                         auto name = convertString(env, args[0]);
                         auto& py = obj->getInterpreter();
 
-                        auto handler = py.import(name);
+                        auto handler = py.import(name, allowReimport);
                         return createHandler(env, &py, handler);
                     }
                     else
                     {
                         napi_valuetype callbackT;
-                        CHECKNULL(napi_typeof(env, args[1], &callbackT));
+                        CHECKNULL(napi_typeof(env, args[2], &callbackT));
 
                         if (callbackT == napi_function)
                         {
                             ImportTask* task = new ImportTask;
                             task->m_py = &(obj->getInterpreter());
                             task->m_name = convertString(env, args[0]);
+                            task->m_allowReimport = allowReimport;
 
                             napi_value optname;
                             napi_create_string_utf8(env, "Python::import", NAPI_AUTO_LENGTH, &optname);
 
-                            CHECKNULL(napi_create_reference(env, args[1], 1, &task->m_callback));
+                            CHECKNULL(napi_create_reference(env, args[2], 1, &task->m_callback));
 
-                            CHECKNULL(napi_create_async_work(env, args[1], optname, ImportAsync, ImportComplete, task, &task->m_work));
+                            CHECKNULL(napi_create_async_work(env, args[2], optname, ImportAsync, ImportComplete, task, &task->m_work));
                             CHECKNULL(napi_queue_async_work(env, task->m_work));
                         }
                     }

@@ -31,6 +31,7 @@ namespace nodecallspython
     {
         PyThreadState* m_state;
         std::unordered_map<std::string, CPyObject> m_objs;
+        std::unordered_map<PyObject*, std::string> m_imports;
         static std::mutex m_mutex;
         static bool m_inited;
     public:
@@ -42,7 +43,7 @@ namespace nodecallspython
 
         static napi_value convert(napi_env env, PyObject* obj);
 
-        std::string import(const std::string& modulename);
+        std::string import(const std::string& modulename, bool allowReimport);
 
         std::string create(const std::string& handler, const std::string& name, CPyObject& args);
 
