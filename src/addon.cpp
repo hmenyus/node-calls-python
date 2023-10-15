@@ -42,6 +42,7 @@ namespace nodecallspython
         std::string m_func;
         bool m_isFunc;
         CPyObject m_args;
+        CPyObject m_kwargs;
 
         CPyObject m_result;
 
@@ -49,6 +50,7 @@ namespace nodecallspython
         {
             GIL gil;
             m_args = CPyObject();
+            m_kwargs = CPyObject();
             m_result = CPyObject();
         }
     };
@@ -119,9 +121,9 @@ namespace nodecallspython
         try
         {
             if (task->m_isFunc)
-                task->m_result = task->m_py->call(task->m_handler, task->m_func, task->m_args);
+                task->m_result = task->m_py->call(task->m_handler, task->m_func, task->m_args, task->m_kwargs);
             else
-                task->m_handler = task->m_py->create(task->m_handler, task->m_func, task->m_args);
+                task->m_handler = task->m_py->create(task->m_handler, task->m_func, task->m_args, task->m_kwargs);
         }
         catch(const std::exception& e)
         {
@@ -338,12 +340,12 @@ namespace nodecallspython
                     {
                         GIL gil;
                         auto& py = obj->getInterpreter();
-                        auto args = py.convert(env, napiargs);
+                        auto pyArgs = py.convert(env, napiargs);
 
                         napi_value result;
                         if (isFunc)
                         {
-                            auto pyres = py.call(handler, func, args);
+                            auto pyres = py.call(handler, func, pyArgs.first, pyArgs.second);
                             if (pyres)
                                 result = py.convert(env, *pyres);
                             else
@@ -351,7 +353,7 @@ namespace nodecallspython
                         }
                         else
                         {
-                            auto newhandler = py.create(handler, func, args);
+                            auto newhandler = py.create(handler, func, pyArgs.first, pyArgs.second);
                             result = createHandler(env, &py, newhandler);
                         }
 
@@ -376,7 +378,7 @@ namespace nodecallspython
 
                             {
                                 GIL gil;
-                                task->m_args = obj->getInterpreter().convert(env, napiargs);
+                                std::tie(task->m_args, task->m_kwargs) = obj->getInterpreter().convert(env, napiargs);
                             }
 
                             CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
