@@ -6,7 +6,7 @@ let py = nodecallspython.interpreter;
 let pyfile = path.join(__dirname, "nodetest.py");
 
 let pymodule = py.importSync(pyfile);
-jest.setTimeout(60000);
+
 it("nodecallspython tests", async () => {
     await py.call(pymodule, "hello");
     await py.call(pymodule, "dump", "a", "b");
