@@ -49,11 +49,20 @@ def testException():
 def undefined(un, n):    
     return (un, n, {1, 2, "www"})
 
+def kwargstest(**kwargs):
+    return mergedict(kwargs, {"test": 1234});
+
+def kwargstestvalue(value, **kwargs):
+    return mergedict(kwargs, {"test": value});
+
 class Calculator:
     vector = []
+    value = 1
 
-    def __init__(self, vector):
+    def __init__(self, vector, **kwargs):
         self.vector = vector
+        if "value" in kwargs:
+            self.value = kwargs["value"]
 
     def multiply(self, scalar, vector):
-        return np.add(np.multiply(scalar, self.vector), vector).tolist()
+        return np.add(np.multiply(scalar * self.value, self.vector), vector).tolist()

@@ -12,8 +12,8 @@ export class PyObject
 
 export interface Interpreter
 {
-    import: (filename: string) => Promise<PyModule>;
-    importSync: (filename: string) => PyModule;
+    import: (filename: string, allowReimport: boolean) => Promise<PyModule>;
+    importSync: (filename: string, allowReimport: boolean) => PyModule;
 
     create: (module: PyModule, className: string, ...args: any[]) => Promise<PyObject>;
     createSync: (module: PyModule, className: string, ...args: any[]) => PyObject;

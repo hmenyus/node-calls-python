@@ -159,6 +159,35 @@ const result = py.evalSync(pymodule, "run_my_code(1, 2, 3)"); // result will hol
 console.log(result);
 ```
 
+### Reimporting a python module
+You have to set **allowReimport** paramter to **true** when calling **import/importSync**.
+
+```javascript
+const nodecallspython = require("node-calls-python");
+
+const py = nodecallspython.interpreter;
+
+let pymodule = py.importSync("path/to/test.py");
+pymodule = py.importSync("path/to/test.py", true);
+```
+
+### Passing kwargs
+Javascript has no similar concept to kwargs of Python. Therefore a little hack is needed here. If you pass an object with **__kwargs** property set to **true** as a parameter to **call/callSync/create/createSync** the object will be mapped to kwargs.
+
+```javascript
+const nodecallspython = require("node-calls-python");
+
+const py = nodecallspython.interpreter;
+
+let pymodule = py.importSync("path/to/test.py");
+py.callSync(pymodule, "your_function", arg1, arg2, {"name1": value1, "name2": value2, "__kwargs": true })
+```
+
+```python
+def your_function(arg1, arg2, **kwargs):
+    print(kwargs)
+```
+
 ### Doing some ML with Python and Node
 Let's say you have the following python code in **logreg.py**
 ```python

@@ -31,6 +31,7 @@ namespace nodecallspython
     {
         PyThreadState* m_state;
         std::unordered_map<std::string, CPyObject> m_objs;
+        std::unordered_map<PyObject*, std::string> m_imports;
         static std::mutex m_mutex;
         static bool m_inited;
     public:
@@ -38,17 +39,17 @@ namespace nodecallspython
 
         ~PyInterpreter();
 
-        static CPyObject convert(napi_env env, const std::vector<napi_value>& args);
+        static std::pair<CPyObject, CPyObject> convert(napi_env env, const std::vector<napi_value>& args);
 
         static napi_value convert(napi_env env, PyObject* obj);
 
-        std::string import(const std::string& modulename);
+        std::string import(const std::string& modulename, bool allowReimport);
 
-        std::string create(const std::string& handler, const std::string& name, CPyObject& args);
+        std::string create(const std::string& handler, const std::string& name, CPyObject& args, CPyObject& kwargs);
 
         void release(const std::string& handler);
         
-        CPyObject call(const std::string& handler, const std::string& func, CPyObject& args);
+        CPyObject call(const std::string& handler, const std::string& func, CPyObject& args, CPyObject& kwargs);
 
         CPyObject exec(const std::string& handler, const std::string& code, bool eval);
 

@@ -70,12 +70,12 @@ class Interpreter
         }
     }
 
-    import(filename)
+    import(filename, allowReimport = false)
     {
         return new Promise(function(resolve, reject) {
             try
             {
-                this.py.import(filename, function(handler, error) {
+                this.py.import(filename, allowReimport, function(handler, error) {
                     if (handler)
                         resolve(handler);
                     else
@@ -89,9 +89,9 @@ class Interpreter
         }.bind(this));
     }
 
-    importSync(filename)
+    importSync(filename, allowReimport = false)
     {
-        return this.py.importSync(filename);
+        return this.py.importSync(filename, allowReimport);
     }
 
     call(handler, func, ...args)

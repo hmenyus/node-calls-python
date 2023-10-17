@@ -94,15 +94,31 @@ it("nodecallspython tests", async () => {
     expect(py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).toEqual([13.2, 61.5, 12.6, 49.2]);
 
     for (let i=0;i<1000;++i)
+        pyobj = await py.create(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4], { "value": 2, "__kwargs": true });
+    await expect(py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).resolves.toEqual([16, 72.5, 15, 58]);
+    expect(py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).toEqual([16, 72.5, 15, 58]);
+
+    for (let i=0;i<1000;++i)
         pyobj = py.createSync(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4]);
     expect(py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).toEqual([13.2, 61.5, 12.6, 49.2]);
     await expect(py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).resolves.toEqual([13.2, 61.5, 12.6, 49.2]);
+
+    for (let i=0;i<1000;++i)
+        pyobj = py.createSync(pymodule, "Calculator", [1.4, 5.5, 1.2, 4.4], { "value": 2, "__kwargs": true });
+    expect(py.callSync(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).toEqual([16, 72.5, 15, 58]);
+    await expect(py.call(pyobj, "multiply", 2, [10.4, 50.5, 10.2, 40.4])).resolves.toEqual([16, 72.5, 15, 58]);
 
     await expect(py.exec(pymodule, "concatenate(\"aaa\", \"bbb\")")).resolves.toEqual(undefined);
     expect(py.execSync(pymodule, "concatenate(\"aaa\", \"bbb\")")).toEqual(undefined);
 
     await expect(py.eval(pymodule, "concatenate(\"aaa\", \"bbb\")")).resolves.toEqual("aaabbb");
     expect(py.evalSync(pymodule, "concatenate(\"aaa\", \"bbb\")")).toEqual("aaabbb");
+
+    expect(py.callSync(pymodule, "kwargstest", { "obj1": obj1, "__kwargs": true })).toEqual({"obj1": obj1, "test": 1234});
+    await expect(py.call(pymodule, "kwargstest", { "obj1": obj1, "__kwargs": true })).resolves.toEqual({"obj1": obj1, "test": 1234});
+
+    expect(py.callSync(pymodule, "kwargstestvalue", 54321, { "obj1": obj1, "__kwargs": true })).toEqual({"obj1": obj1, "test": 54321});
+    await expect(py.call(pymodule, "kwargstestvalue", 54321, {"obj1": obj1, "__kwargs": true })).resolves.toEqual({"obj1": obj1, "test": 54321});
 });
 
 it("nodecallspython async import", () => {
@@ -198,4 +214,13 @@ it("nodecallspython errors", async () => {
 it("nodecallspython worker", () => {
     const worker1 = new Worker(path.join(__dirname, "worker.js"));
     const worker2 = new Worker(path.join(__dirname, "worker.js"));
+});
+
+it("nodecallspython import", async () => {
+    let pymodule = py.importSync(pyfile);
+    expect(py.importSync(pyfile, false)).not.toEqual(pymodule);
+    expect(py.importSync(pyfile, true)).not.toEqual(pymodule);
+
+    await expect(py.import(pyfile, false)).resolves.not.toEqual(pymodule);
+    await expect(py.import(pyfile, true)).resolves.not.toEqual(pymodule);
 });
