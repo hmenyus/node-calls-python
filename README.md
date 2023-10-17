@@ -223,6 +223,19 @@ py.import("logreg.py")).then(async function(pymodule) { // import the python mod
     console.log(predict);
 });
 ```
+### Using Python venv
+You have to add the proper import path so that python could use your installed packages from your venv.
+
+If you have created a venv by ```python -m venv your-venv``` your installed python packages can be found under ```your-venv/Lib/site-packages```.
+So you have to use ```addImportPath``` before importing any module to pick up the python packages from your venv.
+
+```javascript
+const nodecallspython = require("node-calls-python");
+
+const py = nodecallspython.interpreter;
+
+py.addImportPath(your-venv/Lib/site-packages)
+```
 
 ### Working Around Linking Errors on Linux
 If you get an error like this while trying to call Python code
