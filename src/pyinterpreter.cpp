@@ -506,7 +506,11 @@ std::string PyInterpreter::create(const std::string& handler, const std::string&
 
 void PyInterpreter::release(const std::string& handler)
 {
-    m_objs.erase(handler);
+    if (m_objs.count(handler))
+    {
+        m_imports.erase(*m_objs[handler]);
+        m_objs.erase(handler);
+    }
 }
 
 void PyInterpreter::addImportPath(const std::string& path)
