@@ -1,4 +1,5 @@
 const { execSync } = require("child_process");
+const path = require('path');
 
 let stdout;
 try
@@ -10,4 +11,21 @@ catch(e)
     stdout = execSync("python3-config --ldflags");
 }
 
-console.log(stdout.toString());
+let linkerLine = stdout.toString().trim();
+
+// conda hack starts here
+try
+{
+    const condaBase = execSync("conda info --base 2>&1");
+    if (condaBase)
+    {
+        const condaBaseString = condaBase.toString().trim();
+        if (linkerLine.includes(condaBaseString))
+            linkerLine += " -L" + path.join(condaBaseString, "lib")
+    }
+}
+catch(e)
+{
+}
+
+console.log(linkerLine);

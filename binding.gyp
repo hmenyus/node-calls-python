@@ -44,6 +44,7 @@
                     "link_settings": {
                         "libraries": [
                             "<!(node ./scripts/pylink.js)"
+                            "<!(node ./scripts/rpaths.js)"
                         ]
                     },
                     'xcode_settings': {
