@@ -32,5 +32,5 @@ if (stdout)
             result.push("-Wl,-rpath," + s.substring(2));
     });
 
-    console.log(result.join(" "));
+    console.log(" " + result.join(" "));
 }
