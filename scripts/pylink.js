@@ -17,8 +17,12 @@ let linkerLine = stdout.toString();
 try
 {
     const condaBase = execSync("conda info --base 2>&1");
-    if (linkerLine.includes(condaBase))
-        linkerLine += " -L" + condaBase + path.join(condaBase, "lib")
+    if (condaBase)
+    {
+        const condaBaseString = condaBase.toString();
+        if (linkerLine.includes(condaBaseString))
+            linkerLine += " -L" + path.join(condaBaseString, "lib")
+    }
 }
 catch(e)
 {
