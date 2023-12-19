@@ -14,6 +14,17 @@ if (stdout)
 {
     const splits = stdout.toString().trim().split(" ");
 
+    // conda hack starts here
+    try
+    {
+        const condaBase = execSync("conda info --base 2>&1");
+        if (condaBase)
+            splits.push(path.join(condaBase.toString().trim(), "lib"));
+    }
+    catch(e)
+    {
+    }
+
     const result = [];
     splits.forEach(s => {
         if (s.startsWith("-L"))
