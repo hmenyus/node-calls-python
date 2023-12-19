@@ -16,7 +16,7 @@ let linkerLine = stdout.toString();
 // conda hack starts here
 try
 {
-    const condaBase = execSync("conda info --base");
+    const condaBase = execSync("conda info --base 2>&1");
     if (linkerLine.includes(condaBase))
         linkerLine += " -L" + condaBase + path.join(condaBase, "lib")
 }
