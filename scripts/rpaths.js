@@ -19,7 +19,7 @@ if (stdout)
     {
         const condaBase = execSync("conda info --base 2>&1");
         if (condaBase)
-            splits.push(path.join(condaBase.toString().trim(), "lib"));
+            splits.push(path.join("-L" + condaBase.toString().trim(), "lib"));
     }
     catch(e)
     {
