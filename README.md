@@ -249,7 +249,7 @@ const py = nodecallspython.interpreter;
 py.fixlink('libpython3.7m.so');
 ```
 
-### [See more examples here](https://github.com/hmenyus/node-calls-python/tree/master/test)
+### [See more examples here](https://github.com/hmenyus/node-calls-python/tree/main/test)
 
 ## Supported data mapping
 
