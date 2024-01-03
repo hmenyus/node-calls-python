@@ -1,6 +1,6 @@
 {
   "name": "node-calls-python",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "license": "MIT",
   "description": "This module lets you run python code inside node without spawning new processes",
   "authors": [
@@ -22,7 +22,7 @@
   "licenses": [
     {
       "type": "MIT",
-      "url": "https://github.com/hmenyus/node-calls-python/blob/master/LICENSE"
+      "url": "https://github.com/hmenyus/node-calls-python/blob/main/LICENSE"
     }
   ],
   "files": [
