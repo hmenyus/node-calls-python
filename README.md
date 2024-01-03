@@ -1,5 +1,5 @@
 
-![node-calls-python](https://github.com/hmenyus/node-calls-python/blob/master/logo.png)
+![node-calls-python](https://github.com/hmenyus/node-calls-python/blob/main/logo.png)
 
 # node-calls-python - call Python from Node.js directly in-process without spawning processes
 
