@@ -36,7 +36,7 @@
   ],
   "main": "index.js",
   "scripts": {
-    "start": "npm build .",
+    "build": "npm install .",
     "test": "jest"
   },
   "exports": {
