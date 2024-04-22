@@ -1,5 +1,5 @@
-import { interpreter as py } from 'node-calls-python'
-import {join, dirname } from 'path'
+import { interpreter as py } from 'node-calls-python';
+import {join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
