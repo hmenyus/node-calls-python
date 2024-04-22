@@ -223,6 +223,35 @@ py.import("logreg.py")).then(async function(pymodule) { // import the python mod
     console.log(predict);
 });
 ```
+### Using as ES Module
+You can import node-calls-python as an ES module.
+
+```javascript
+import { interpreter as py } from 'node-calls-python'
+
+let pymodule = py.importSync(pyfile);
+```
+
+### Using in Next.js
+If you see the following error when importing in Next.js
+```Module not found: Can't resolve './build/Release/nodecallspython'```
+
+You have add the following code to your next.config.mjs because currently Next.js cannot bundle native node addons properly.
+For more details please see [serverComponentsExternalPackages in Next.js](https://nextjs.org/docs/app/api-reference/next-config-js/serverComponentsExternalPackages)
+
+```
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    serverComponentsExternalPackages: [
+      'node-calls-python'
+    ]
+  }
+};
+
+export default nextConfig;
+```
+
 ### Using Python venv
 You have to add the proper import path so that python could use your installed packages from your venv.
 
