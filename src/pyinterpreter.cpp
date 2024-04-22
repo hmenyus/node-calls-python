@@ -44,10 +44,14 @@ PyInterpreter::PyInterpreter() : m_state(nullptr)
 
 PyInterpreter::~PyInterpreter()
 {
+    {
+        GIL gil;
+        m_objs = {};
+    }
+
     if (m_state)
     {
         PyEval_RestoreThread(m_state);
-        m_objs = {};
         Py_Finalize();
     }
 }
