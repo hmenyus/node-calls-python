@@ -227,7 +227,7 @@ py.import("logreg.py")).then(async function(pymodule) { // import the python mod
 You can import node-calls-python as an ES module.
 
 ```javascript
-import { interpreter as py } from 'node-calls-python'
+import { interpreter as py } from 'node-calls-python';
 
 let pymodule = py.importSync(pyfile);
 ```
