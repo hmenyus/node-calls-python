@@ -7,6 +7,7 @@
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.me/hmenyus)
 [![Node.js CI](https://github.com/hmenyus/node-calls-python/actions/workflows/node.js.yml/badge.svg)](https://github.com/hmenyus/node-calls-python/actions/workflows/node.js.yml)
+[![npm](https://img.shields.io/npm/v/node-calls-python)](https://www.npmjs.com/package/node-calls-python)
 
 ## Motivation
 Current solutions spawn a new process whenever you want to run Python code in Node.js and communicate via IPC using sockets, stdin/stdout, etc.
