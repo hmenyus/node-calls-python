@@ -37,7 +37,13 @@
     "start": "npm build .",
     "test": "jest"
   },
+  "exports": {
+    "types": "./index.d.ts",
+    "require": "./index.js",
+    "import": "./index.mjs"
+  },
   "devDependencies": {
-    "jest": "^27.5.1"
+    "jest": "^27.5.1",
+    "node-gyp": "^3.8.0"
   }
 }
