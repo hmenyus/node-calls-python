@@ -1,6 +1,6 @@
 {
   "name": "node-calls-python",
-  "version": "1.8.4",
+  "version": "1.8.5",
   "license": "MIT",
   "description": "This module lets you run python code inside node without spawning new processes",
   "authors": [
@@ -28,6 +28,8 @@
   "files": [
     "binding.gyp",
     "index.d.ts",
+    "index.js",
+    "index.mjs",
     "src/",
     "test/",
     "scripts/"
@@ -37,7 +39,13 @@
     "start": "npm build .",
     "test": "jest"
   },
+  "exports": {
+    "types": "./index.d.ts",
+    "require": "./index.js",
+    "import": "./index.mjs"
+  },
   "devDependencies": {
-    "jest": "^27.5.1"
+    "jest": "^27.5.1",
+    "node-gyp": "^10.1.0"
   }
 }
