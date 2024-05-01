@@ -1,4 +1,5 @@
 import numpy as np
+import nodetestre
 
 def hello():
     print("hello world")
@@ -66,3 +67,6 @@ class Calculator:
 
     def multiply(self, scalar, vector):
         return np.add(np.multiply(scalar * self.value, self.vector), vector).tolist()
+
+def testReimport():
+    return nodetestre.getVar()

@@ -29,6 +29,8 @@ export interface Interpreter
 
     fixlink: (fileName: string) => void;
 
+    reimport: (directory: string) => void;
+
     addImportPath: (path: string) => void;
 }
 

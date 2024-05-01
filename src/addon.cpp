@@ -11,6 +11,7 @@
 #define DECLARE_NAPI_METHOD(name, func) { name, 0, func, 0, 0, 0, napi_default, 0 }
 #define CHECK(func) { if (func != napi_ok) { napi_throw_error(env, "error", #func); return; } }
 #define CHECKNULL(func) { if (func != napi_ok) { napi_throw_error(env, "error", #func); return nullptr; } }
+#define CHECKNONE(func) { if (func != napi_ok) { napi_throw_error(env, "error", #func); return {}; } }
 
 namespace nodecallspython
 {
@@ -278,11 +279,12 @@ namespace nodecallspython
                 DECLARE_NAPI_METHOD("execSync", execSync),
                 DECLARE_NAPI_METHOD("eval", eval),
                 DECLARE_NAPI_METHOD("evalSync", evalSync),
-                DECLARE_NAPI_METHOD("addImportPath", addImportPath)
+                DECLARE_NAPI_METHOD("addImportPath", addImportPath),
+                DECLARE_NAPI_METHOD("reimport", reimport),
             };
 
             napi_value cons;
-            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 12, properties, &cons));
+            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 13, properties, &cons));
 
             CHECKNULL(napi_create_reference(env, cons, 1, &constructor));
 
@@ -661,91 +663,93 @@ namespace nodecallspython
             return callImpl(env, info, false, true); 
         }
 
+        static std::pair<std::string, Python*> getStringArgument(napi_env env, napi_callback_info info)
+        {
+            napi_value jsthis;
+            size_t argc = 1;
+            napi_value args[1];
+            CHECKNONE(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
+
+            if (argc != 1)
+            {
+                napi_throw_error(env, "args", "Must have 1 arguments");
+                return {};
+            }
+
+            Python* obj;
+            CHECKNONE(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
+
+            napi_valuetype valuetype;
+            CHECKNONE(napi_typeof(env, args[0], &valuetype));
+
+            if (valuetype == napi_string)
+                return { convertString(env, args[0]), obj };
+            else
+            {
+                napi_throw_error(env, "args", "Wrong type of arguments");
+            }
+
+            return {};
+        }
+
         static napi_value fixlink(napi_env env, napi_callback_info info)
         {
 #ifdef WIN32
             return nullptr;
 #else
-            napi_value jsthis;
-            size_t argc = 1;
-            napi_value args[1];
-            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
-
-            if (argc != 1)
-            {
-                napi_throw_error(env, "args", "Must have 1 arguments");
+            auto [filename, obj] = getStringArgument(env, info);
+            if (filename.empty())
                 return nullptr;
-            }
 
-            Python* obj;
-            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
-
-            napi_valuetype valuetype;
-            CHECKNULL(napi_typeof(env, args[0], &valuetype));
-
-            if (valuetype == napi_string)
+            auto result = dlopen(filename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+            if (!result)
             {
-                auto filename = convertString(env, args[0]);
-                auto result = dlopen(filename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
-                if (!result)
-                {
-                    auto error = dlerror();
-                    if (error)
-                        napi_throw_error(env, "args", error);
-                    else
-                        napi_throw_error(env, "args", "Unknown error of dlopen");
-                }
-                
-                return nullptr;
+                auto error = dlerror();
+                if (error)
+                    napi_throw_error(env, "args", error);
+                else
+                    napi_throw_error(env, "args", "Unknown error of dlopen");
             }
-            else
-            {
-                napi_throw_error(env, "args", "Wrong type of arguments");
-            }
-
+            
             return nullptr;
 #endif
         }
 
+        static napi_value reimport(napi_env env, napi_callback_info info)
+        {
+            auto [directory, obj] = getStringArgument(env, info);
+            if (directory.empty())
+                return nullptr;
+
+            auto& py = obj->getInterpreter();
+            try
+            {
+                GIL gil;
+                py.reimport(directory);
+            }
+            catch(const std::exception& e)
+            {
+                napi_throw_error(env, "py", e.what());
+            }
+
+            return nullptr;
+        }
+
         static napi_value addImportPath(napi_env env, napi_callback_info info)
         {
-            napi_value jsthis;
-            size_t argc = 1;
-            napi_value args[1];
-            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
-
-            if (argc != 1)
-            {
-                napi_throw_error(env, "args", "Must have 1 arguments");
+            auto [path, obj] = getStringArgument(env, info);
+            if (path.empty())
                 return nullptr;
-            }
 
-            Python* obj;
-            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
-
-            napi_valuetype valuetype;
-            CHECKNULL(napi_typeof(env, args[0], &valuetype));
-
-            if (valuetype == napi_string)
+            auto& py = obj->getInterpreter();
+            try
             {
-                auto path = convertString(env, args[0]);
-                auto& py = obj->getInterpreter();
-
-                std::string handler;
-                try
-                {
-                    GIL gil;
-                    py.addImportPath(path);
-                    return nullptr;
-                }
-                catch(const std::exception& e)
-                {
-                    napi_throw_error(env, "py", e.what());
-                }
+                GIL gil;
+                py.addImportPath(path);
             }
-            else
+            catch(const std::exception& e)
             {
-                napi_throw_error(env, "args", "Wrong type of arguments");
+                napi_throw_error(env, "py", e.what());
             }
 
             return nullptr;

@@ -147,6 +147,11 @@ class Interpreter
         return this.py.fixlink(filename);
     }
 
+    reimport(directory)
+    {
+        return this.py.reimport(directory);
+    }
+
     exec(handler, code)
     {
         return new Promise(function(resolve, reject) {

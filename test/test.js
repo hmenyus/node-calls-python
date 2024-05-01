@@ -224,3 +224,13 @@ it("nodecallspython import", async () => {
     await expect(py.import(pyfile, false)).resolves.not.toEqual(pymodule);
     await expect(py.import(pyfile, true)).resolves.not.toEqual(pymodule);
 });
+
+it("nodecallspython reimport", () => {
+    expect(py.callSync(pymodule, "testReimport")).toEqual(6);
+    expect(py.callSync(pymodule, "testReimport")).toEqual(7);
+    expect(py.callSync(pymodule, "testReimport")).toEqual(8);
+
+    py.reimport(__dirname);
+    expect(py.callSync(pymodule, "testReimport")).toEqual(6);
+    expect(py.callSync(pymodule, "testReimport")).toEqual(7);
+});
