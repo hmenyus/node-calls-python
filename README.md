@@ -173,6 +173,26 @@ let pymodule = py.importSync("path/to/test.py");
 pymodule = py.importSync("path/to/test.py", true);
 ```
 
+### Development Mode
+During development you may want to update your python code running inside Node without restarting your Node process. To achieve this you can reimport your python modules.
+All your python modules will be reimported where the filename of your python module matches the string parameter: ```path/to/your/python/code```.
+```javascript
+const nodecallspython = require("node-calls-python");
+
+const py = nodecallspython.interpreter;
+
+py.reimport('path/to/your/python/code');
+```
+
+Another option is to run ***node-calls-python*** in development mode. In this case once you have updated your python code under ```path/to/your/python/code``` the runtime will automatically reimport the changed modules.
+```javascript
+const nodecallspython = require("node-calls-python");
+
+const py = nodecallspython.interpreter;
+
+py.developmentMode('path/to/your/python/code');
+```
+
 ### Passing kwargs
 Javascript has no similar concept to kwargs of Python. Therefore a little hack is needed here. If you pass an object with **__kwargs** property set to **true** as a parameter to **call/callSync/create/createSync** the object will be mapped to kwargs.
 
@@ -226,7 +246,7 @@ py.import("logreg.py")).then(async function(pymodule) { // import the python mod
 });
 ```
 ### Using as ES Module
-You can import node-calls-python as an ES module.
+You can import ***node-calls-python*** as an ***ES module***.
 
 ```javascript
 import { interpreter as py } from 'node-calls-python';
