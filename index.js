@@ -2,6 +2,7 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const nodecallspython = require("./build/Release/nodecallspython");
+const chokidar = require("chokidar");
 
 class Interpreter
 {
@@ -203,6 +204,19 @@ class Interpreter
     addImportPath(path)
     {
         return this.py.addImportPath(path);
+    }
+
+    developmentMode(paths)
+    {
+        const watcher = chokidar.watch(paths, {
+            persistent: true,
+            ignoreInitial: true,
+        });
+        watcher.on('change', (fileName) => {
+            const ext = path.extname(fileName);
+            if (ext == ".py" || ext == "py")
+                this.reimport(fileName);
+        });
     }
 }
 

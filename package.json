@@ -44,6 +44,9 @@
     "require": "./index.js",
     "import": "./index.mjs"
   },
+  "dependencies": {
+    "chokidar": "^3.6.0"
+  },
   "devDependencies": {
     "jest": "^27.5.1",
     "node-gyp": "^10.1.0"

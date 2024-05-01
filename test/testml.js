@@ -2,6 +2,7 @@ const nodecallspython = require("../");
 const path = require("path");
 
 let py = nodecallspython.interpreter;
+py.developmentMode([__dirname]);
 
 py.import(path.join(__dirname, "logreg.py")).then(async function(pymodule) { // import the python module
     let logreg = await py.create(pymodule, "LogReg", "iris"); // create the instance of the classifier

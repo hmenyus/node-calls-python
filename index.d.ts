@@ -32,6 +32,8 @@ export interface Interpreter
     reimport: (directory: string) => void;
 
     addImportPath: (path: string) => void;
+
+    developmentMode: (paths: string[]) => void;
 }
 
 export const interpreter: Interpreter;
