@@ -212,7 +212,7 @@ class Interpreter
             persistent: true,
             ignoreInitial: true,
         });
-        watcher.on('change', (fileName) => {
+        watcher.on("change", (fileName) => {
             const ext = path.extname(fileName);
             if (ext == ".py" || ext == "py")
                 this.reimport(fileName);
