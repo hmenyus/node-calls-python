@@ -1,6 +1,6 @@
 {
   "name": "node-calls-python",
-  "version": "1.8.5",
+  "version": "1.9.0",
   "license": "MIT",
   "description": "This module lets you run python code inside node without spawning new processes",
   "authors": [
@@ -43,6 +43,9 @@
     "types": "./index.d.ts",
     "require": "./index.js",
     "import": "./index.mjs"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0"
   },
   "devDependencies": {
     "jest": "^27.5.1",

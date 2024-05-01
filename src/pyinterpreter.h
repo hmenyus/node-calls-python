@@ -54,5 +54,7 @@ namespace nodecallspython
         CPyObject exec(const std::string& handler, const std::string& code, bool eval);
 
         void addImportPath(const std::string& path);
+
+        void reimport(const std::string& directory);
     };
 }
