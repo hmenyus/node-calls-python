@@ -2,6 +2,7 @@
 #include <memory>
 #include <sstream>
 #include <iostream>
+#include <tuple>
 #ifndef WIN32
 #include <dlfcn.h>
 #endif
@@ -697,8 +698,10 @@ namespace nodecallspython
 #ifdef WIN32
             return nullptr;
 #else
-            auto [filename, obj] = getStringArgument(env, info);
-            if (filename.empty())
+            std::string filename;
+            Python* obj = nullptr;
+            std::tie(filename, obj) = getStringArgument(env, info);
+            if (filename.empty() || !obj)
                 return nullptr;
 
             auto result = dlopen(filename.c_str(), RTLD_LAZY | RTLD_GLOBAL);
@@ -717,8 +720,10 @@ namespace nodecallspython
 
         static napi_value reimport(napi_env env, napi_callback_info info)
         {
-            auto [directory, obj] = getStringArgument(env, info);
-            if (directory.empty())
+            std::string directory;
+            Python* obj = nullptr;
+            std::tie(directory, obj) = getStringArgument(env, info);
+            if (directory.empty() || !obj)
                 return nullptr;
 
             auto& py = obj->getInterpreter();
@@ -737,8 +742,10 @@ namespace nodecallspython
 
         static napi_value addImportPath(napi_env env, napi_callback_info info)
         {
-            auto [path, obj] = getStringArgument(env, info);
-            if (path.empty())
+            std::string path;
+            Python* obj = nullptr;
+            std::tie(path, obj) = getStringArgument(env, info);
+            if (path.empty() || !obj)
                 return nullptr;
 
             auto& py = obj->getInterpreter();
