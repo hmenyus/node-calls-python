@@ -552,37 +552,34 @@ void PyInterpreter::reimport(const std::string& input)
     PyErr_Clear();
 
     std::vector<std::pair<PyObject*, std::string> > reloadThese;
+    auto directory = ::normalize(input);
 
+    auto sysModules = PySys_GetObject("modules");
+    if (!sysModules)
     {
-        auto directory = ::normalize(input);
+        handleException();
+        throw std::runtime_error("Unknown python error");
+    }
 
-        CPyObject sysModules = PySys_GetObject("modules");
-        if (!sysModules)
+    PyObject *key, *pymodule;
+    Py_ssize_t pos = 0;
+    while (PyDict_Next(sysModules, &pos, &key, &pymodule))
+    {
+        if (PyModule_Check(pymodule))
         {
-            handleException();
-            throw std::runtime_error("Unknown python error");
-        }
-
-        PyObject *key, *pymodule;
-        Py_ssize_t pos = 0;
-        while (PyDict_Next(*sysModules, &pos, &key, &pymodule))
-        {
-            if (PyModule_Check(pymodule))
+            CPyObject fileName = PyModule_GetFilenameObject(pymodule);
+            if (fileName)
             {
-                CPyObject fileName = PyModule_GetFilenameObject(pymodule);
-                if (fileName)
+                Py_ssize_t size = 0;
+                auto str = PyUnicode_AsUTF8AndSize(*fileName, &size);
+                auto normalized = ::normalize(str);
+                if (normalized.find(directory) != std::string::npos)
                 {
-                    Py_ssize_t size = 0;
-                    auto str = PyUnicode_AsUTF8AndSize(*fileName, &size);
-                    auto normalized = ::normalize(str);
-                    if (normalized.find(directory) != std::string::npos)
-                    {
-                        auto it = m_imports.find(pymodule);
-                        if (it != m_imports.end())
-                            reloadThese.push_back({ pymodule, it->second });
-                        else
-                            reloadThese.push_back({ pymodule, std::string() });
-                    }
+                    auto it = m_imports.find(pymodule);
+                    if (it != m_imports.end())
+                        reloadThese.push_back({ pymodule, it->second });
+                    else
+                        reloadThese.push_back({ pymodule, std::string() });
                 }
             }
         }
