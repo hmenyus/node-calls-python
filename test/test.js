@@ -230,7 +230,11 @@ it("nodecallspython reimport", () => {
     expect(py.callSync(pymodule, "testReimport")).toEqual(7);
     expect(py.callSync(pymodule, "testReimport")).toEqual(8);
 
-    py.reimport(__dirname);
-    expect(py.callSync(pymodule, "testReimport")).toEqual(6);
-    expect(py.callSync(pymodule, "testReimport")).toEqual(7);
+    for (let i=0;i<10;++i)
+    {
+        py.reimport(__dirname);
+
+        expect(py.callSync(pymodule, "testReimport")).toEqual(6);
+        expect(py.callSync(pymodule, "testReimport")).toEqual(7);
+    }
 });
