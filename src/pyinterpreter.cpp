@@ -148,6 +148,7 @@ namespace
                 len *= 2;
                 break;
             case napi_int32_array:
+            case napi_uint32_array:
             case napi_float32_array:
                 len *= 4;
                 break;
