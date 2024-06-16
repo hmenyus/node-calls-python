@@ -70,3 +70,16 @@ class Calculator:
 
 def testReimport():
     return nodetestre.getVar()
+
+def testBuffer(input, asBA = False):
+    a = np.frombuffer(input, dtype=np.single)
+    if asBA:
+        return bytearray((a * 2).tobytes())
+    else:
+        return (a * 2).tobytes()
+
+def testBufferEmpty(asBA = False):
+    if asBA:
+        return bytearray()
+    else:
+        return bytes()
