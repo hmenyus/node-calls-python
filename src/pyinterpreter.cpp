@@ -109,6 +109,73 @@ namespace
 
             return { list, false };
         }
+
+        bool isarraybuffer = false;
+        CHECK(napi_is_arraybuffer(env, arg, &isarraybuffer));
+        if (isarraybuffer)
+        {
+            void* data = nullptr;
+            size_t len = 0;
+            CHECK(napi_get_arraybuffer_info(env, arg, &data, &len));
+            auto* bytes = PyBytes_FromStringAndSize((const char*)data, len);
+            return { bytes, false };
+        }
+
+        bool isbuffer = false;
+        CHECK(napi_is_buffer(env, arg, &isbuffer));
+        if (isbuffer)
+        {
+            void* data = nullptr;
+            size_t len = 0;
+            CHECK(napi_get_buffer_info(env, arg, &data, &len));
+            auto* bytes = PyBytes_FromStringAndSize((const char*)data, len);
+            return { bytes, false };
+        }
+
+        bool istypedarray = false;
+        CHECK(napi_is_typedarray(env, arg, &istypedarray));
+        if (istypedarray)
+        {
+            napi_typedarray_type type;
+            void* data = nullptr;
+            size_t len = 0;
+            CHECK(napi_get_typedarray_info(env, arg, &type, &len, &data, nullptr, nullptr));
+
+            switch (type)
+            {
+            case napi_int16_array:
+            case napi_uint16_array:
+                len *= 2;
+                break;
+            case napi_int32_array:
+            case napi_uint32_array:
+            case napi_float32_array:
+                len *= 4;
+                break;
+            case napi_float64_array:
+            case napi_bigint64_array:
+            case napi_biguint64_array:
+                len *= 8;
+                break;
+            default:
+                break;
+            }
+
+            auto* bytes = PyBytes_FromStringAndSize((const char*)data, len);
+            return { bytes, false };
+        }
+
+        bool isdataview = false;
+        CHECK(napi_is_dataview(env, arg, &isdataview));
+        if (isdataview)
+        {
+            void* data = nullptr;
+            size_t len = 0;
+            CHECK(napi_get_dataview_info(env, arg, &len, &data, nullptr, nullptr));
+            auto* bytes = PyBytes_FromStringAndSize((const char*)data, len);
+            return { bytes, false };
+        }
+
         else if (type == napi_undefined || type == napi_null)
         {
             Py_INCREF(Py_None);
@@ -238,6 +305,16 @@ namespace
 
         return array;
     }
+
+    napi_value createArrayBuffer(napi_env env, size_t size, const char* ptr)
+    {
+        void* data = nullptr;
+        napi_value buffer;
+        CHECK(napi_create_arraybuffer(env, size, &data, &buffer));
+        if (size && ptr)
+            memcpy(data, ptr, size);
+        return buffer;
+    }
 }
 
 napi_value PyInterpreter::convert(napi_env env, PyObject* obj)
@@ -300,6 +377,20 @@ napi_value PyInterpreter::convert(napi_env env, PyObject* obj)
         CPyObject iterator = PyObject_GetIter(obj);
 
         return fillArray(env, iterator, array);
+    }
+    else if (PyBytes_Check(obj))
+    {
+        auto size = PyBytes_Size(obj);
+        auto ptr = PyBytes_AsString(obj);
+
+        return createArrayBuffer(env, size, ptr);
+    }
+    else if (PyByteArray_Check(obj))
+    {
+        auto size = PyByteArray_Size(obj);
+        auto ptr = PyByteArray_AsString(obj);
+
+        return createArrayBuffer(env, size, ptr);
     }
     else if (PyDict_Check(obj))
     {

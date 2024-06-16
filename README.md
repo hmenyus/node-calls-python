@@ -316,6 +316,9 @@ py.fixlink('libpython3.7m.so');
   - string to unicode (string)
   - array to list
   - object to dictionary
+  - ArrayBuffer to bytes
+  - Buffer to bytes
+  - TypedArray to bytes 
 ```
 
 ### From Python to Node
@@ -329,5 +332,7 @@ py.fixlink('libpython3.7m.so');
   - tuple to array
   - set to array
   - dictionary to object
-  - numpy.array to array (this has limited support, will convert everything to number or string)    
+  - numpy.array to array (this has limited support, will convert everything to number or string)
+  - bytes to ArrayBuffer
+  - bytearray to ArrayBuffer  
 ```

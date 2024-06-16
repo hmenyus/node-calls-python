@@ -238,3 +238,55 @@ it("nodecallspython reimport", () => {
         expect(py.callSync(pymodule, "testReimport")).toEqual(7);
     }
 });
+
+it("nodecallspython buffers", () => {
+    const float32 = new Float32Array(4);
+    float32[0] = 1.0;
+    float32[1] = 1.1;
+    float32[2] = 2.2;
+    float32[3] = 4.3;
+
+    let result = new Float32Array(py.callSync(pymodule, "testBuffer", float32));
+    expect(result.length).toEqual(4);
+    expect(result[0]).toBeCloseTo(2.0);
+    expect(result[1]).toBeCloseTo(2.2);
+    expect(result[2]).toBeCloseTo(4.4);
+    expect(result[3]).toBeCloseTo(8.6);
+
+    const arrayBuffer = new ArrayBuffer(16);
+    const float32Buffer = new Float32Array(arrayBuffer);
+    float32Buffer[0] = 10.0;
+    float32Buffer[1] = 10.1;
+    float32Buffer[2] = 20.2;
+    float32Buffer[3] = 40.3;
+
+    result = new Float32Array(py.callSync(pymodule, "testBuffer", arrayBuffer));
+    expect(result.length).toEqual(4);
+    expect(result[0]).toBeCloseTo(20.0);
+    expect(result[1]).toBeCloseTo(20.2);
+    expect(result[2]).toBeCloseTo(40.4);
+    expect(result[3]).toBeCloseTo(80.6);
+
+    result = new Float32Array(py.callSync(pymodule, "testBuffer", new DataView(arrayBuffer, 4, 8)));
+    expect(result.length).toEqual(2);
+    expect(result[0]).toBeCloseTo(20.2);
+    expect(result[1]).toBeCloseTo(40.4);
+
+    result = new Float32Array(py.callSync(pymodule, "testBuffer", Buffer.from(arrayBuffer, 0, 12)));
+    expect(result.length).toEqual(3);
+    expect(result[0]).toBeCloseTo(20.0);
+    expect(result[1]).toBeCloseTo(20.2);
+    expect(result[2]).toBeCloseTo(40.4);
+
+    result = new Float32Array(py.callSync(pymodule, "testBuffer", Buffer.from(arrayBuffer, 0, 12), true));
+    expect(result.length).toEqual(3);
+    expect(result[0]).toBeCloseTo(20.0);
+    expect(result[1]).toBeCloseTo(20.2);
+    expect(result[2]).toBeCloseTo(40.4);
+
+    result = new Float32Array(py.callSync(pymodule, "testBufferEmpty"));
+    expect(result.length).toEqual(0);
+
+    result = new Float32Array(py.callSync(pymodule, "testBufferEmpty", true));
+    expect(result.length).toEqual(0);
+});
