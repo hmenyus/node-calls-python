@@ -483,8 +483,32 @@ namespace
             if (error)
             {
                 Py_ssize_t size;
-                auto str = PyUnicode_AsUTF8AndSize(*error, &size);
-                err = std::runtime_error(str ? str : "Unknown python error");
+                std::string str = "";
+                if (traceback == nullptr) {
+                    str = PyUnicode_AsUTF8AndSize(*error, &size);
+                } else {
+                    PyErr_NormalizeException(&type, &value, &traceback);
+                    PyObject *pTraceModule = PyImport_ImportModule("traceback");
+                    if (pTraceModule != nullptr) {
+                        PyObject *pModuleDict = PyModule_GetDict(pTraceModule);
+                        if (pModuleDict != nullptr) {
+                            PyObject *pFunc = PyDict_GetItemString(pModuleDict, "format_exception");
+                            if (pFunc != nullptr) {
+                                PyObject *errList = PyObject_CallFunctionObjArgs(pFunc, type, value,
+                                                                                 traceback, nullptr, nullptr);
+                                if (errList != nullptr) {
+                                    int listSize = PyList_Size(errList);
+                                    for (int i = 0; i < listSize; ++i) {
+                                        auto item = PyList_GetItem(errList, i);
+                                        str += PyUnicode_AsUTF8(item);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                err = std::runtime_error(!str.empty() ? str : "Unknown python error");
             }
 
             PyErr_Restore(type, value, traceback);
