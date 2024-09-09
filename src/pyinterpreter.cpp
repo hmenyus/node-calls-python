@@ -494,12 +494,12 @@ namespace
                         if (pModuleDict != nullptr) {
                             PyObject *pFunc = PyDict_GetItemString(pModuleDict, "format_exception");
                             if (pFunc != nullptr) {
-                                PyObject *errList = PyObject_CallFunctionObjArgs(pFunc, type, value,
+                                CPyObject pyErrList = PyObject_CallFunctionObjArgs(pFunc, type, value,
                                                                                  traceback, nullptr, nullptr);
-                                if (errList != nullptr) {
-                                    int listSize = PyList_Size(errList);
+                                if (pyErrList) {
+                                    int listSize = PyList_Size(*pyErrList);
                                     for (int i = 0; i < listSize; ++i) {
-                                        auto item = PyList_GetItem(errList, i);
+                                        auto item = PyList_GetItem(*pyErrList, i);
                                         str += PyUnicode_AsUTF8(item);
                                     }
                                 }
