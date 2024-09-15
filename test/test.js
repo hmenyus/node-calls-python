@@ -139,8 +139,8 @@ it("nodecallspython errors", async () => {
     await expect(py.call(pymodule, "dump", "a")).rejects.toEqual("dump() missing 1 required positional argument: 'b'");
     expect(() => py.callSync(pymodule, "dump", "a")).toThrow("dump() missing 1 required positional argument: 'b'");
 
-    await expect(py.call(pymodule, "testException")).rejects.toEqual("test");
-    expect(() => py.callSync(pymodule, "testException")).toThrow("test");
+    await expect(py.call(pymodule, "testException")).rejects.toMatch(/.+nodetest.py.+RuntimeError: test.*/s);
+    expect(() => py.callSync(pymodule, "testException")).toThrow(/.+nodetest.py.+RuntimeError: test.*/s);
 
     await expect(py.create(pymodule, "Calculator2")).rejects.toEqual("module 'nodetest' has no attribute 'Calculator2'");
     expect(() => py.createSync(pymodule, "Calculator2")).toThrow("module 'nodetest' has no attribute 'Calculator2'");
@@ -150,12 +150,12 @@ it("nodecallspython errors", async () => {
     await expect(py.import(path.join(__dirname, "error.py"))).rejects.toEqual("No module named 'error'");
     expect(() => py.importSync(path.join(__dirname, "error.py"))).toThrow("No module named 'error'");
 
-    await expect(py.exec(pymodule, "dump(12)")).rejects.toEqual("dump() missing 1 required positional argument: 'b'");
+    await expect(py.exec(pymodule, "dump(12)")).rejects.toMatch("dump() missing 1 required positional argument: 'b'");
     expect(() => py.execSync(pymodule, "dump(12)")).toThrow("dump() missing 1 required positional argument: 'b'");
     await expect(py.exec(pymodule, function(){})).rejects.toThrow("Wrong type of arguments");
     expect(() => py.execSync(pymodule, function(){})).toThrow("Wrong type of arguments");
 
-    await expect(py.eval(pymodule, "dump(12)")).rejects.toEqual("dump() missing 1 required positional argument: 'b'");
+    await expect(py.eval(pymodule, "dump(12)")).rejects.toMatch("dump() missing 1 required positional argument: 'b'");
     expect(() => py.evalSync(pymodule, "dump(12)")).toThrow("dump() missing 1 required positional argument: 'b'");
     await expect(py.eval(pymodule, function(){})).rejects.toThrow("Wrong type of arguments");
     expect(() => py.evalSync(pymodule, function(){})).toThrow("Wrong type of arguments");
