@@ -484,18 +484,22 @@ namespace
             {
                 Py_ssize_t size;
                 std::string str = "";
-                if (traceback == nullptr) {
+                if (traceback == nullptr)
                     str = PyUnicode_AsUTF8AndSize(*error, &size);
-                } else {
+                else
+                {
                     PyErr_NormalizeException(&type, &value, &traceback);
                     PyObject *pTraceModule = PyImport_ImportModule("traceback");
-                    if (pTraceModule != nullptr) {
+                    if (pTraceModule != nullptr)
+                    {
                         PyObject *pModuleDict = PyModule_GetDict(pTraceModule);
-                        if (pModuleDict != nullptr) {
+                        if (pModuleDict != nullptr)
+                        {
                             PyObject *pFunc = PyDict_GetItemString(pModuleDict, "format_exception");
-                            if (pFunc != nullptr) {
-                                CPyObject pyErrList = PyObject_CallFunctionObjArgs(pFunc, type, value,
-                                                                                 traceback, nullptr, nullptr);
+                            if (pFunc != nullptr)
+                            {
+                                CPyObject pyErrList = 
+                                    PyObject_CallFunctionObjArgs(pFunc, type, value, traceback, nullptr, nullptr);
                                 if (pyErrList) {
                                     int listSize = PyList_Size(*pyErrList);
                                     for (int i = 0; i < listSize; ++i) {
