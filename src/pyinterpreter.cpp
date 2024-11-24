@@ -60,6 +60,19 @@ PyInterpreter::~PyInterpreter()
 
 namespace
 {
+    PyObject* __callback_function_napi(PyObject *self, PyObject* args)
+    {
+        auto func = reinterpret_cast<napi_threadsafe_function*>(PyCapsule_GetPointer(self, nullptr));
+        napi_call_threadsafe_function(*func, args, napi_tsfn_blocking);
+        return nullptr;
+    }
+
+    PyMethodDef ml = { "__callback_function_napi", (PyCFunction)(void(*)(void))__callback_function_napi, METH_VARARGS, nullptr };
+
+    void CallJs(napi_env env, napi_value js_cb, void* context, void* data) 
+    {
+    }
+
     PyObject* handleInteger(napi_env env, napi_value arg)
     {
         //handle integers
@@ -85,7 +98,7 @@ namespace
             return PyLong_FromLong(i);
     }
 
-    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg)
+    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, std::vector<PyFunctionData>& functions)
     {
         napi_valuetype type;
         CHECK(napi_typeof(env, arg, &type));
@@ -104,7 +117,7 @@ namespace
             {
                 napi_value value;
                 CHECK(napi_get_element(env, arg, i, &value));
-                PyList_SetItem(list, i, ::convert(env, value).first);
+                PyList_SetItem(list, i, ::convert(env, value, functions).first);
             }
 
             return { list, false };
@@ -175,7 +188,6 @@ namespace
             auto* bytes = PyBytes_FromStringAndSize((const char*)data, len);
             return { bytes, false };
         }
-
         else if (type == napi_undefined || type == napi_null)
         {
             Py_INCREF(Py_None);
@@ -248,15 +260,29 @@ namespace
                     kwargs = true;
                 else
                 {
-                    CPyObject pykey = ::convert(env, key).first;
+                    CPyObject pykey = ::convert(env, key, functions).first;
 
-                    CPyObject pyvalue = ::convert(env, value).first;
+                    CPyObject pyvalue = ::convert(env, value, functions).first;
 
                     PyDict_SetItem(dict, *pykey, *pyvalue);
                 }
             }
 
             return { dict, kwargs };
+        }
+        else if (type == napi_function)
+        {
+            auto tsfn = std::make_unique<napi_threadsafe_function>();
+
+            napi_value workName;
+            CHECK(napi_create_string_utf8(env, "ThreadSafeCallback", NAPI_AUTO_LENGTH, &workName));
+    
+            CHECK(napi_create_threadsafe_function(env, arg, nullptr, workName, 0, 1, nullptr, nullptr, nullptr, CallJs, tsfn.get()));
+
+            CPyObject capsule = PyCapsule_New(tsfn.get(), nullptr, nullptr);
+            auto function = PyCFunction_New(&ml, *capsule);
+            functions.emplace_back(std::make_pair(std::move(capsule), std::move(tsfn)));
+            return { function, false };
         }
         else
             return { handleInteger(env, arg), false };
@@ -265,29 +291,30 @@ namespace
     }
 }
 
-std::pair<CPyObject, CPyObject> PyInterpreter::convert(napi_env env, const std::vector<napi_value>& args)
+PyParameters PyInterpreter::convert(napi_env env, const std::vector<napi_value>& args)
 {
     std::vector<PyObject*> paramsVect;
+    std::vector<PyFunctionData> functions;
+    CPyObject kwargs;
     paramsVect.reserve(args.size());
-    CPyObject kwparams;
     for (auto i=0u;i<args.size();++i)
     {
-        auto cparams = ::convert(env, args[i]);
+        auto cparams = ::convert(env, args[i], functions);
         if (!cparams.first)
             throw std::runtime_error("Cannot convert #" + std::to_string(i + 1) + " argument");
 
         if (cparams.second)
-            kwparams = cparams.first;
+            kwargs = cparams.first;
         else
             paramsVect.push_back(cparams.first);
     }
 
-    CPyObject params = PyTuple_New(paramsVect.size());
+    CPyObject tuple = PyTuple_New(paramsVect.size());
 
     for (auto i=0u;i<paramsVect.size();++i)
-        PyTuple_SetItem(*params, i, paramsVect[i]);
+        PyTuple_SetItem(*tuple, i, paramsVect[i]);
 
-    return { params, kwparams };
+    return PyParameters(std::move(tuple), std::move(kwargs), std::move(functions));
 }
 
 namespace
@@ -566,7 +593,7 @@ std::string PyInterpreter::import(const std::string& modulename, bool allowReimp
     return uuid;
 }
 
-CPyObject PyInterpreter::call(const std::string& handler, const std::string& func, CPyObject& args, CPyObject& kwargs)
+CPyObject PyInterpreter::call(const std::string& handler, const std::string& func, PyParameters& params)
 {
     auto it = m_objs.find(handler);
 
@@ -577,7 +604,7 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
     CPyObject pyFunc = PyObject_GetAttrString(*(it->second), func.c_str());
     if (pyFunc && PyCallable_Check(*pyFunc))
     {
-        CPyObject pyResult = PyObject_Call(*pyFunc, *args, *kwargs);
+        CPyObject pyResult = PyObject_Call(*pyFunc, *params.args, *params.kwargs);
         if (!*pyResult)
         {
             handleException();
@@ -613,9 +640,9 @@ CPyObject PyInterpreter::exec(const std::string& handler, const std::string& cod
     return pyResult;
 }
 
-std::string PyInterpreter::create(const std::string& handler, const std::string& name, CPyObject& args, CPyObject& kwargs)
+std::string PyInterpreter::create(const std::string& handler, const std::string& name, PyParameters& params)
 {
-    auto obj = call(handler, name, args, kwargs);
+    auto obj = call(handler, name, params);
 
     if (obj)
     {

@@ -130,8 +130,6 @@ it("nodecallspython errors", async () => {
     expect(() => py.callSync(pymodule, "error")).toThrow("module 'nodetest' has no attribute 'error'");
 
     expect(() => py.callSync(pymodule, function(){})).toThrow("Wrong type of arguments");
-    expect(() => py.callSync(pymodule, "dump", function(){})).toThrow("Invalid parameter: unknown type");
-    await expect(py.call(pymodule, "dump", function(){})).rejects.toThrow("Invalid parameter: unknown type");
 
     await expect(py.call(pymodule, "dump")).rejects.toEqual("dump() missing 2 required positional arguments: 'a' and 'b'");
     expect(() => py.callSync(pymodule, "dump")).toThrow("dump() missing 2 required positional arguments: 'a' and 'b'");
@@ -144,8 +142,6 @@ it("nodecallspython errors", async () => {
 
     await expect(py.create(pymodule, "Calculator2")).rejects.toEqual("module 'nodetest' has no attribute 'Calculator2'");
     expect(() => py.createSync(pymodule, "Calculator2")).toThrow("module 'nodetest' has no attribute 'Calculator2'");
-    expect(() => py.createSync(pymodule, "Calculator2", function(){})).toThrow("Invalid parameter: unknown type");
-    await expect(py.create(pymodule, "Calculator2", function(){})).rejects.toThrow("Invalid parameter: unknown type");
 
     await expect(py.import(path.join(__dirname, "error.py"))).rejects.toEqual("No module named 'error'");
     expect(() => py.importSync(path.join(__dirname, "error.py"))).toThrow("No module named 'error'");

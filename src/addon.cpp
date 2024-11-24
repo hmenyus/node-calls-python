@@ -43,16 +43,14 @@ namespace nodecallspython
         std::string m_handler;
         std::string m_func;
         bool m_isFunc;
-        CPyObject m_args;
-        CPyObject m_kwargs;
-
+        
+        PyParameters m_args;
         CPyObject m_result;
 
         ~CallTask()
         {
             GIL gil;
-            m_args = CPyObject();
-            m_kwargs = CPyObject();
+            m_args.~PyParameters();
             m_result = CPyObject();
         }
     };
@@ -123,9 +121,9 @@ namespace nodecallspython
         try
         {
             if (task->m_isFunc)
-                task->m_result = task->m_py->call(task->m_handler, task->m_func, task->m_args, task->m_kwargs);
+                task->m_result = task->m_py->call(task->m_handler, task->m_func, task->m_args);
             else
-                task->m_handler = task->m_py->create(task->m_handler, task->m_func, task->m_args, task->m_kwargs);
+                task->m_handler = task->m_py->create(task->m_handler, task->m_func, task->m_args);
         }
         catch(const std::exception& e)
         {
@@ -348,7 +346,7 @@ namespace nodecallspython
                         napi_value result;
                         if (isFunc)
                         {
-                            auto pyres = py.call(handler, func, pyArgs.first, pyArgs.second);
+                            auto pyres = py.call(handler, func, pyArgs);
                             if (pyres)
                                 result = py.convert(env, *pyres);
                             else
@@ -356,7 +354,7 @@ namespace nodecallspython
                         }
                         else
                         {
-                            auto newhandler = py.create(handler, func, pyArgs.first, pyArgs.second);
+                            auto newhandler = py.create(handler, func, pyArgs);
                             result = createHandler(env, &py, newhandler);
                         }
 
@@ -381,7 +379,7 @@ namespace nodecallspython
 
                             {
                                 GIL gil;
-                                std::tie(task->m_args, task->m_kwargs) = obj->getInterpreter().convert(env, napiargs);
+                                task->m_args = std::move(obj->getInterpreter().convert(env, napiargs));
                             }
 
                             CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));

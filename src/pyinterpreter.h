@@ -27,6 +27,44 @@ namespace nodecallspython
         }
     };
 
+    using PyFunctionData = std::pair<CPyObject, std::unique_ptr<napi_threadsafe_function> >;
+
+    struct PyParameters
+    {
+        CPyObject args;
+        CPyObject kwargs;
+        std::vector<PyFunctionData> functions;
+
+        PyParameters() = default;
+
+        PyParameters(CPyObject&& args, CPyObject&& kwargs, std::vector<PyFunctionData>&& functions) : 
+            args(std::move(args)), kwargs(std::move(kwargs)), functions(std::move(functions))
+        {
+        }
+
+        ~PyParameters()
+        {
+            args = CPyObject();
+            kwargs = CPyObject();
+            for (auto& func : functions)
+            {
+                func.first = CPyObject();
+                napi_release_threadsafe_function(*func.second, napi_tsfn_abort);
+            }
+            functions.clear();
+        }
+
+        void operator=(PyParameters&& other)
+        {
+            if (this != &other)
+            {
+                args = std::move(other.args);
+                kwargs = std::move(other.kwargs);
+                functions = std::move(other.functions);
+            }
+        }
+    };
+
     class PyInterpreter
     {
         PyThreadState* m_state;
@@ -39,17 +77,17 @@ namespace nodecallspython
 
         ~PyInterpreter();
 
-        static std::pair<CPyObject, CPyObject> convert(napi_env env, const std::vector<napi_value>& args);
+        static PyParameters convert(napi_env env, const std::vector<napi_value>& args);
 
         static napi_value convert(napi_env env, PyObject* obj);
 
         std::string import(const std::string& modulename, bool allowReimport);
 
-        std::string create(const std::string& handler, const std::string& name, CPyObject& args, CPyObject& kwargs);
+        std::string create(const std::string& handler, const std::string& name, PyParameters& params);
 
         void release(const std::string& handler);
         
-        CPyObject call(const std::string& handler, const std::string& func, CPyObject& args, CPyObject& kwargs);
+        CPyObject call(const std::string& handler, const std::string& func, PyParameters& params);
 
         CPyObject exec(const std::string& handler, const std::string& code, bool eval);
 
