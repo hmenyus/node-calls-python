@@ -83,3 +83,12 @@ def testBufferEmpty(asBA = False):
         return bytearray()
     else:
         return bytes()
+
+def testFunction(type, function):
+    if type == 0:
+        function()
+        return 2
+    else:
+        function(123, [1, 2, 4], {"a": 1, "b": 2})
+        function(125)
+        return 22

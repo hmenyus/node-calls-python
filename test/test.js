@@ -286,3 +286,42 @@ it("nodecallspython buffers", () => {
     result = new Float32Array(py.callSync(pymodule, "testBufferEmpty", true));
     expect(result.length).toEqual(0);
 });
+
+it("nodecallspython functions", async () => {
+
+    let count = 0;
+    function callback()
+    {
+        console.log("hello world");
+        ++count;
+    };
+
+    expect(py.callSync(pymodule, "testFunction", 0, callback)).toEqual(2);
+    expect(await py.call(pymodule, "testFunction", 0, callback)).toEqual(2);
+    expect(count).toEqual(2);
+
+    count = 0;
+    function callbackArgs(param1, param2, param3)
+    {
+        if (count % 2 == 0)
+        {
+            expect(param1).toEqual(123);
+            expect(param2).toEqual([ 1, 2, 4 ]);
+            expect(param3).toEqual({ "a": 1, "b": 2 });
+        }
+        else
+        {
+            expect(param1).toEqual(125);
+            expect(param2).toEqual(undefined);
+            expect(param3).toEqual(undefined);
+        }
+
+        console.log(param1, param2, param3);
+
+        ++count;
+    };
+
+    expect(py.callSync(pymodule, "testFunction", 1, callbackArgs)).toEqual(22);
+    expect(await py.call(pymodule, "testFunction", 1, callbackArgs)).toEqual(22);
+    expect(count).toEqual(4);
+});

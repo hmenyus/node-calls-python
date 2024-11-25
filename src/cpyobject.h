@@ -49,20 +49,5 @@ namespace nodecallspython
                     Py_INCREF(m_py);
             }
         }
-
-        CPyObject(CPyObject&& other)
-        {
-            m_py = other.m_py;
-            other.m_py = nullptr;
-        }
-
-        void operator=(CPyObject&& other)
-        {
-            if (m_py != other.m_py)
-            { 
-                m_py = other.m_py;
-                other.m_py = nullptr;
-            }
-        }
     };
 }
