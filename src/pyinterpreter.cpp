@@ -248,13 +248,19 @@ namespace
 
     void callJs(napi_env env, napi_value func, void* context, void* data) 
     {
-        auto gstate = PyGILState_Ensure();
-        auto args = reinterpret_cast<PyObject*>(data);
-        auto params = convertParams(env, args);
-        Py_DECREF(args);
-        PyGILState_Release(gstate);
+        try
+        {
+            auto gstate = PyGILState_Ensure();
+            auto args = reinterpret_cast<PyObject*>(data);
+            auto params = convertParams(env, args);
+            Py_DECREF(args);
+            PyGILState_Release(gstate);
 
-        callJsImpl(env, func, params);
+            callJsImpl(env, func, params);
+        }
+        catch(std::exception& e)
+        {            
+        }
     }
 
     PyObject* __callback_function_napi_async(PyObject *self, PyObject* args)
@@ -277,18 +283,25 @@ namespace
 
     void callJsPromise(napi_env env, napi_value func, void* context, void* data) 
     {
-        auto gstate = PyGILState_Ensure();
         auto promise = reinterpret_cast<Promise*>(data);
-        auto params = convertParams(env, promise->args);
-        Py_DECREF(promise->args);
-        PyGILState_Release(gstate);
+        try
+        {
+            auto gstate = PyGILState_Ensure();
+            auto params = convertParams(env, promise->args);
+            Py_DECREF(promise->args);
+            PyGILState_Release(gstate);
 
-        auto result = callJsImpl(env, func, params);
+            auto result = callJsImpl(env, func, params);
 
-        gstate = PyGILState_Ensure();
-        auto pyResult = convert(env, result, true, false, false).first;
-        PyGILState_Release(gstate);
-        promise->promise.set_value(pyResult);
+            gstate = PyGILState_Ensure();
+            auto pyResult = convert(env, result, true, false, false).first;
+            PyGILState_Release(gstate);
+            promise->promise.set_value(pyResult);
+        }
+        catch(std::exception& e)
+        {           
+            promise->promise.set_value(nullptr); 
+        }
     }
 
     PyObject* __callback_function_napi_async_promise(PyObject *self, PyObject* args)
