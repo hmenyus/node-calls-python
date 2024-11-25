@@ -3,6 +3,7 @@
 #include <iostream>
 #include <csignal>
 #include <cstdlib>
+#include <future>
 
 using namespace nodecallspython;
 
@@ -233,24 +234,25 @@ namespace
         return params;
     }
 
-    void callJsImpl(napi_env env, napi_value func, const std::vector<napi_value>& params)
+    napi_value callJsImpl(napi_env env, napi_value func, const std::vector<napi_value>& params)
     {
         napi_value undefined, result;
         napi_get_undefined(env, &undefined);
         napi_call_function(env, undefined, func, params.size(), params.data(), &result);
+        return result;
     }
+
+    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, bool isSync, bool allowFunc);
 
     void callJs(napi_env env, napi_value func, void* context, void* data) 
     {
-        std::vector<napi_value> params;
-        {
-            GIL gil;
-            params = convertParams(env, data);
-        }
+        auto gstate = PyGILState_Ensure();
+        auto args = reinterpret_cast<PyObject*>(data);
+        auto params = convertParams(env, args);
+        Py_DECREF(args);
+        PyGILState_Release(gstate);
 
         callJsImpl(env, func, params);
-
-        Py_DECREF(reinterpret_cast<PyObject*>(data));
     }
 
     PyObject* __callback_function_napi(PyObject *self, PyObject* args)
@@ -271,8 +273,8 @@ namespace
     {
         auto func = reinterpret_cast<SycnCallback*>(PyCapsule_GetPointer(self, nullptr));
         auto params = convertParams(func->env, args);
-        callJsImpl(func->env, func->func, params);
-        Py_RETURN_NONE;
+        auto result = callJsImpl(func->env, func->func, params);
+        return convert(func->env, result, true, false).first;
     }
 
     void capsuleDestructor(PyObject* obj)
@@ -315,7 +317,7 @@ namespace
             return PyLong_FromLong(i);
     }
 
-    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, bool isSync)
+    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, bool isSync, bool allowFunc)
     {
         napi_valuetype type;
         CHECK(napi_typeof(env, arg, &type));
@@ -334,7 +336,7 @@ namespace
             {
                 napi_value value;
                 CHECK(napi_get_element(env, arg, i, &value));
-                PyList_SetItem(list, i, ::convert(env, value, isSync).first);
+                PyList_SetItem(list, i, ::convert(env, value, isSync, allowFunc).first);
             }
 
             return { list, false };
@@ -477,9 +479,9 @@ namespace
                     kwargs = true;
                 else
                 {
-                    CPyObject pykey = ::convert(env, key, isSync).first;
+                    CPyObject pykey = ::convert(env, key, isSync, allowFunc).first;
 
-                    CPyObject pyvalue = ::convert(env, value, isSync).first;
+                    CPyObject pyvalue = ::convert(env, value, isSync, allowFunc).first;
 
                     PyDict_SetItem(dict, *pykey, *pyvalue);
                 }
@@ -487,7 +489,7 @@ namespace
 
             return { dict, kwargs };
         }
-        else if (type == napi_function)
+        else if (type == napi_function && allowFunc)
         {
             if (isSync)
             {
@@ -513,8 +515,7 @@ namespace
             return { handleInteger(env, arg), false };
 
         throw std::runtime_error("Invalid parameter: unknown type");
-    }
-}
+    }}
 
 std::pair<CPyObject, CPyObject> PyInterpreter::convert(napi_env env, const std::vector<napi_value>& args, bool isSync)
 {
@@ -523,7 +524,7 @@ std::pair<CPyObject, CPyObject> PyInterpreter::convert(napi_env env, const std::
     paramsVect.reserve(args.size());
     for (auto i=0u;i<args.size();++i)
     {
-        auto cparams = ::convert(env, args[i], isSync);
+        auto cparams = ::convert(env, args[i], isSync, true);
         if (!cparams.first)
             throw std::runtime_error("Cannot convert #" + std::to_string(i + 1) + " argument");
 
