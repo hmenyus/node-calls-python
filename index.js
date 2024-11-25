@@ -206,6 +206,11 @@ class Interpreter
         return this.py.addImportPath(path);
     }
 
+    setSyncJsAndPyInCallback(syncJsAndPy)
+    {
+        return this.py.setSyncJsAndPyInCallback(syncJsAndPy);
+    }
+
     developmentMode(paths)
     {
         const watcher = chokidar.watch(paths, {

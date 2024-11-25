@@ -92,3 +92,12 @@ def testFunction(type, function):
         function(123, [1, 2, 4], {"a": 1, "b": 2})
         function(125)
         return 22
+    
+def testFunctionPromise(type, function):
+    if type == 0:
+        res = function()
+        return res
+    else:
+        res = function(123, [1, 2, 4], {"a": 1, "b": 2})
+        function(res * 125)
+        return res * 22

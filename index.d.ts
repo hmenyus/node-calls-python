@@ -34,6 +34,8 @@ export interface Interpreter
     addImportPath: (path: string) => void;
 
     developmentMode: (paths: string[]) => void;
+
+    setSyncJsAndPyInCallback: (syncJsAndPy: boolean) => void;
 }
 
 export const interpreter: Interpreter;
