@@ -256,7 +256,7 @@ If you do not want to synchronize the execution of your JavaScript and Python co
 py.setSyncJsAndPyInCallback(false);
 ```
 
-In this case one possible order of the execution could look like this (the actual order is determened by the runtime, jsFunction will run independently)
+In this case one possible order of the execution could look like this (the actual order is determened by the runtime, jsFunction will run completely async)
 ```
     - start of py.call
     - start of your_function
@@ -267,7 +267,7 @@ In this case one possible order of the execution could look like this (the actua
     - end of jsFunction
 ```
 
-Because jsFunction runs independently it is not possible to pass the result of jsFunction back to Python. But passing arguments from Python to jsFunction is still possible.
+Because jsFunction runs async it is not possible to pass the result of jsFunction back to Python. But passing arguments from Python to jsFunction is still possible.
 
 ### Doing some ML with Python and Node
 Let's say you have the following python code in **logreg.py**
