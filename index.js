@@ -41,6 +41,26 @@ class Interpreter
         return found;
     }
 
+    getPythonExecutableImpl(command)
+    {
+        const stdout = execSync(command);
+        if (stdout)
+        {
+            const result = stdout.toString().trim().split("\n");
+            if (result.length > 0)
+                return result[0].trim();
+        }
+        return undefined;
+    }
+
+    getPythonExecutable()
+    {
+        if (process.platform === "win32")
+            return this.getPythonExecutableImpl("where python");
+        else
+            return this.getPythonExecutableImpl("which python3");
+    }
+
     constructor()
     {
         this.py = new nodecallspython.PyInterpreter();
@@ -68,6 +88,15 @@ class Interpreter
                     });
                 }
             }
+        }
+
+        try
+        {
+            this.setPythonExecutable(this.getPythonExecutable());
+        }
+        catch(e)
+        {
+            throw e;
         }
     }
 
@@ -209,6 +238,12 @@ class Interpreter
     setSyncJsAndPyInCallback(syncJsAndPy)
     {
         return this.py.setSyncJsAndPyInCallback(syncJsAndPy);
+    }
+
+    setPythonExecutable(executable)
+    {
+        const escaped = executable.trim().replace(/\\/g, '\\\\\\\\');
+        this.py.execSync({}, 'import multiprocessing; multiprocessing.set_executable(\'' + escaped + '\');');
     }
 
     developmentMode(paths)
