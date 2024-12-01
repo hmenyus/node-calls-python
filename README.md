@@ -162,7 +162,7 @@ console.log(result);
 ```
 
 ### Reimporting a python module
-You have to set **allowReimport** paramter to **true** when calling **import/importSync**.
+You have to set **allowReimport** parameter to **true** when calling **import/importSync**.
 
 ```javascript
 const nodecallspython = require("node-calls-python");
@@ -174,7 +174,7 @@ pymodule = py.importSync("path/to/test.py", true);
 ```
 
 ### Development Mode
-During development you may want to update your python code running inside Node without restarting your Node process. To achieve this you can reimport your python modules.
+During development, you may want to update your python code running inside Node without restarting your Node process. To achieve this you can reimport your python modules.
 All your python modules will be reimported where the filename of your python module matches the string parameter: ```path/to/your/python/code```.
 ```javascript
 const nodecallspython = require("node-calls-python");
@@ -184,7 +184,7 @@ const py = nodecallspython.interpreter;
 py.reimport('path/to/your/python/code');
 ```
 
-Another option is to run ***node-calls-python*** in development mode. In this case once you have updated your python code under ```path/to/your/python/code``` the runtime will automatically reimport the changed modules.
+Another option is to run ***node-calls-python*** in development mode. In this case, once you have updated your python code under ```path/to/your/python/code``` the runtime will automatically reimport the changed modules.
 ```javascript
 const nodecallspython = require("node-calls-python");
 
@@ -210,7 +210,7 @@ def your_function(arg1, arg2, **kwargs):
     print(kwargs)
 ```
 
-### Passing JavaScript funtions to Python
+### Passing JavaScript functions to Python
 If you want to trigger a call from your Python code back to JavaScript this feature could be useful.
 
 ```javascript
@@ -240,7 +240,7 @@ You can also do this using the async API.
 py.call(pymodule, "your_function", arg1, arg2, jsFunction);
 ```
 
-By default the async Python call will wait for the execution of the JavaScript function by synchronizing the libuv thread (used by the Python call) and the main thread (used by the JavaScript function).
+By default, the async Python call will wait for the execution of the JavaScript function by synchronizing the libuv thread (used by the Python call) and the main thread (used by the JavaScript function).
 So the order of execution will look like this:
 ```
     - start of py.call
@@ -256,7 +256,7 @@ If you do not want to synchronize the execution of your JavaScript and Python co
 py.setSyncJsAndPyInCallback(false);
 ```
 
-In this case one possible order of the execution could look like this (the actual order is determened by the runtime, jsFunction will run completely async)
+In this case, one possible order of the execution could look like this (the actual order is determined by the runtime. jsFunction will run completely async).
 ```
     - start of py.call
     - start of your_function
@@ -267,7 +267,7 @@ In this case one possible order of the execution could look like this (the actua
     - end of jsFunction
 ```
 
-Because jsFunction runs async it is not possible to pass the result of jsFunction back to Python. But passing arguments from Python to jsFunction is still possible.
+Because jsFunction runs async, it is not possible to pass the result of jsFunction back to Python. But passing arguments from Python to jsFunction is still possible.
 
 ### Doing some ML with Python and Node
 Let's say you have the following python code in **logreg.py**
@@ -317,8 +317,8 @@ let pymodule = py.importSync(pyfile);
 If you see the following error when importing in Next.js
 ```Module not found: Can't resolve './build/Release/nodecallspython'```
 
-You have add the following code to your next.config.mjs because currently Next.js cannot bundle native node addons properly.
-For more details please see [serverComponentsExternalPackages in Next.js](https://nextjs.org/docs/app/api-reference/next-config-js/serverComponentsExternalPackages)
+You have to add the following code to your next.config.mjs because currently Next.js cannot bundle native node addons properly.
+For more details, please see [serverComponentsExternalPackages in Next.js](https://nextjs.org/docs/app/api-reference/next-config-js/serverComponentsExternalPackages)
 
 ```
 /** @type {import('next').NextConfig} */
