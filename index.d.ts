@@ -36,6 +36,8 @@ export interface Interpreter
     developmentMode: (paths: string[]) => void;
 
     setSyncJsAndPyInCallback: (syncJsAndPy: boolean) => void;
+
+    setPythonExecutable: (executable: string) => void;
 }
 
 export const interpreter: Interpreter;

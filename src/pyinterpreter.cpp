@@ -752,13 +752,20 @@ CPyObject PyInterpreter::call(const std::string& handler, const std::string& fun
 
 CPyObject PyInterpreter::exec(const std::string& handler, const std::string& code, bool eval)
 {
-    auto it = m_objs.find(handler);
-
-    if(it == m_objs.end())
-        throw std::runtime_error("Cannot find handler: " + handler);
-
-    auto localsPtr = PyModule_GetDict(*(it->second));
     auto globals = CPyObject{PyDict_New()};
+
+    PyObject* localsPtr;
+    if (handler.empty())
+        localsPtr = *globals;
+    else
+    {
+        auto it = m_objs.find(handler);
+
+        if(it == m_objs.end())
+            throw std::runtime_error("Cannot find handler: " + handler);
+
+        localsPtr = PyModule_GetDict(*(it->second));
+    }
 
     PyErr_Clear();
     CPyObject pyResult = PyRun_String(code.c_str(), eval ? Py_eval_input : Py_file_input, *globals, localsPtr);

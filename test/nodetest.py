@@ -101,3 +101,12 @@ def testFunctionPromise(type, function):
         res = function(123, [1, 2, 4], {"a": 1, "b": 2})
         function(res * 125)
         return res * 22
+
+def compute(i):
+    return 2 * i
+
+def testMultiProcessing(len):
+    numbers = [(i + 1) for i in range(len)]
+    with multiprocessing.Pool(processes=3) as pool:
+        results = pool.map(compute, numbers)
+    return sum(results)

@@ -363,3 +363,9 @@ it("nodecallspython functions promise", async () => {
         expect(count).toEqual(4);
     }
 });
+
+it("nodecallspython multiprocessing", async () => {
+    //py.execSync(pymodule, "import multiprocessing; multiprocessing.set_executable(\"absolute-path-to-python-exe\")")
+    expect(py.callSync(pymodule, "testMultiProcessing", 5)).toEqual(30);
+    expect(await py.call(pymodule, "testMultiProcessing", 5)).toEqual(30);
+});
