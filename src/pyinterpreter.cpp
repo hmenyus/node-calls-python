@@ -247,7 +247,7 @@ namespace
 
     void callJs(napi_env env, napi_value func, void* context, void* data) 
     {
-        auto gstate = PyGILState_Ensure();
+        GIL gil;
         try
         {
             CPyObject args(reinterpret_cast<PyObject*>(data));
@@ -258,7 +258,6 @@ namespace
         catch(std::exception&)
         {            
         }
-        PyGILState_Release(gstate);
     }
 
     PyObject* __callback_function_napi_async(PyObject *self, PyObject* args)
@@ -284,17 +283,20 @@ namespace
         auto promise = reinterpret_cast<Promise*>(data);
         try
         {
-            auto gstate = PyGILState_Ensure();
-            auto params = convertParams(env, promise->args);
-            Py_DECREF(promise->args);
-            PyGILState_Release(gstate);
+            std::vector<napi_value> params;
+            {
+                GIL gil;
+                CPyObject args(promise->args);
+                params = convertParams(env, *args);
+            }
 
             auto result = callJsImpl(env, func, params);
 
-            gstate = PyGILState_Ensure();
-            auto pyResult = convert(env, result, true, false, false).first;
-            PyGILState_Release(gstate);
-            promise->promise.set_value(pyResult);
+            {
+                GIL gil;
+                auto pyResult = convert(env, result, true, false, false).first;
+                promise->promise.set_value(pyResult);
+            }
         }
         catch(std::exception&)
         {           
