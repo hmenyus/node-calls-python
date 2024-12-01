@@ -210,6 +210,65 @@ def your_function(arg1, arg2, **kwargs):
     print(kwargs)
 ```
 
+### Passing JavaScript funtions to Python
+If you want to trigger a call from your Python code back to JavaScript this feature could be useful.
+
+```javascript
+const nodecallspython = require("node-calls-python");
+
+const py = nodecallspython.interpreter;
+
+let pymodule = py.importSync("path/to/test.py");
+
+function jsFunction(arg1, arg2, arg3)
+{
+    console.log(arg1, arg2, arg3);
+    return arg3 + 1;
+}
+
+py.callSync(pymodule, "your_function", arg1, arg2, jsFunction);
+```
+
+```python
+def your_function(arg1, arg2, jsFunction):
+    jsResult = jsFunction(arg1 + arg2, "any string", 42);
+    print(jsResult);
+```
+
+You can also do this using the async API.
+```javascript
+py.call(pymodule, "your_function", arg1, arg2, jsFunction);
+```
+
+By default the async Python call will wait for the execution of the JavaScript function by synchronizing the libuv thread (used by the Python call) and the main thread (used by the JavaScript function).
+So the order of execution will look like this:
+```
+    - start of py.call
+    - start of your_function
+    - start of jsFunction
+    - end of jsFunction
+    - end of your_function
+    - end of py.call
+```
+
+If you do not want to synchronize the execution of your JavaScript and Python code, you have to turn this off by calling **setSyncJsAndPyInCallback(false)** on the interpreter.
+```javascript
+py.setSyncJsAndPyInCallback(false);
+```
+
+In this case one possible order of the execution could look like this (the actual order is determened by the runtime, jsFunction will run independently)
+```
+    - start of py.call
+    - start of your_function
+    - put jsFunction to the queue of the runtime
+    - end of your_function
+    - end of py.call
+    - start of jsFunction
+    - end of jsFunction
+```
+
+Because jsFunction runs independently it is not possible to pass the result of jsFunction back to Python. But passing arguments from Python to jsFunction is still possible.
+
 ### Doing some ML with Python and Node
 Let's say you have the following python code in **logreg.py**
 ```python
@@ -318,7 +377,8 @@ py.fixlink('libpython3.7m.so');
   - object to dictionary
   - ArrayBuffer to bytes
   - Buffer to bytes
-  - TypedArray to bytes 
+  - TypedArray to bytes
+  - Function to function
 ```
 
 ### From Python to Node
