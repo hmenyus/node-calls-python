@@ -382,7 +382,7 @@ namespace nodecallspython
 
                             {
                                 GIL gil;
-                                std::tie(task->m_args, task->m_kwargs) = std::move(obj->getInterpreter().convert(env, napiargs, false));
+                                std::tie(task->m_args, task->m_kwargs) = obj->getInterpreter().convert(env, napiargs, false);
                             }
 
                             CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
