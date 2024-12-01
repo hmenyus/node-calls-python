@@ -43,9 +43,9 @@ namespace nodecallspython
         std::string m_handler;
         std::string m_func;
         bool m_isFunc;
+        
         CPyObject m_args;
         CPyObject m_kwargs;
-
         CPyObject m_result;
 
         ~CallTask()
@@ -282,10 +282,11 @@ namespace nodecallspython
                 DECLARE_NAPI_METHOD("evalSync", evalSync),
                 DECLARE_NAPI_METHOD("addImportPath", addImportPath),
                 DECLARE_NAPI_METHOD("reimport", reimport),
+                DECLARE_NAPI_METHOD("setSyncJsAndPyInCallback", setSyncJsAndPyInCallback)
             };
 
             napi_value cons;
-            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 13, properties, &cons));
+            CHECKNULL(napi_define_class(env, "PyInterpreter", NAPI_AUTO_LENGTH, create, nullptr, 14, properties, &cons));
 
             CHECKNULL(napi_create_reference(env, cons, 1, &constructor));
 
@@ -343,7 +344,7 @@ namespace nodecallspython
                     {
                         GIL gil;
                         auto& py = obj->getInterpreter();
-                        auto pyArgs = py.convert(env, napiargs);
+                        auto pyArgs = py.convert(env, napiargs, true);
 
                         napi_value result;
                         if (isFunc)
@@ -381,7 +382,7 @@ namespace nodecallspython
 
                             {
                                 GIL gil;
-                                std::tie(task->m_args, task->m_kwargs) = obj->getInterpreter().convert(env, napiargs);
+                                std::tie(task->m_args, task->m_kwargs) = obj->getInterpreter().convert(env, napiargs, false);
                             }
 
                             CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
@@ -757,6 +758,40 @@ namespace nodecallspython
             catch(const std::exception& e)
             {
                 napi_throw_error(env, "py", e.what());
+            }
+
+            return nullptr;
+        }
+
+        static napi_value setSyncJsAndPyInCallback(napi_env env, napi_callback_info info)
+        {
+            napi_value jsthis;
+            size_t argc = 1;
+            napi_value args[1];
+            CHECKNULL(napi_get_cb_info(env, info, &argc, &args[0], &jsthis, nullptr));
+
+            if (argc != 1)
+            {
+                napi_throw_error(env, "args", "Wrong number of arguments");
+                return nullptr;
+            }
+
+            Python* obj;
+            CHECKNULL(napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj)));
+
+            napi_valuetype syncJsAndPyT;
+            CHECKNULL(napi_typeof(env, args[0], &syncJsAndPyT));
+
+            if (syncJsAndPyT == napi_boolean)
+            {
+                auto syncJsAndPy = false;
+                CHECKNULL(napi_get_value_bool(env, args[0], &syncJsAndPy));
+
+                obj->getInterpreter().setSyncJsAndPyInCallback(syncJsAndPy);
+            }
+            else
+            {
+                napi_throw_error(env, "args", "Wrong type of arguments");
             }
 
             return nullptr;

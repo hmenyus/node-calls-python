@@ -12,19 +12,19 @@ namespace nodecallspython
     class GIL
     {
         PyGILState_STATE m_gstate;
-        static std::mutex m_mutex;
     public:
         GIL()
         {
-            m_mutex.lock();
             m_gstate = PyGILState_Ensure();
         }
 
         ~GIL()
         {
             PyGILState_Release(m_gstate);
-            m_mutex.unlock();
         }
+
+        GIL(const GIL&) = delete;
+        GIL& operator=(const GIL&) = delete;
     };
 
     class PyInterpreter
@@ -32,6 +32,7 @@ namespace nodecallspython
         PyThreadState* m_state;
         std::unordered_map<std::string, CPyObject> m_objs;
         std::unordered_map<PyObject*, std::string> m_imports;
+        bool m_syncJsAndPy;
         static std::mutex m_mutex;
         static bool m_inited;
     public:
@@ -39,9 +40,9 @@ namespace nodecallspython
 
         ~PyInterpreter();
 
-        static std::pair<CPyObject, CPyObject> convert(napi_env env, const std::vector<napi_value>& args);
+        std::pair<CPyObject, CPyObject> convert(napi_env env, const std::vector<napi_value>& args, bool isSync);
 
-        static napi_value convert(napi_env env, PyObject* obj);
+        napi_value convert(napi_env env, PyObject* obj);
 
         std::string import(const std::string& modulename, bool allowReimport);
 
@@ -56,5 +57,7 @@ namespace nodecallspython
         void addImportPath(const std::string& path);
 
         void reimport(const std::string& directory);
+
+        void setSyncJsAndPyInCallback(bool syncJsAndPy);
     };
 }

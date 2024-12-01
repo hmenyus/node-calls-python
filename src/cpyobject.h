@@ -38,13 +38,16 @@ namespace nodecallspython
 
         void operator=(const CPyObject& other)
         {
-            if (m_py)
-                Py_DECREF(m_py);
+            if (m_py != other.m_py)
+            {
+                if (m_py)
+                    Py_DECREF(m_py);
 
-            m_py = other.m_py;
-            
-            if (m_py)
-                Py_INCREF(m_py);
+                m_py = other.m_py;
+                
+                if (m_py)
+                    Py_INCREF(m_py);
+            }
         }
     };
 }

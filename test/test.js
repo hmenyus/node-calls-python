@@ -7,6 +7,8 @@ let pyfile = path.join(__dirname, "nodetest.py");
 
 let pymodule = py.importSync(pyfile);
 
+jest.setTimeout(30000);
+
 it("nodecallspython tests", async () => {
     await py.call(pymodule, "hello");
     await py.call(pymodule, "dump", "a", "b");
@@ -130,8 +132,6 @@ it("nodecallspython errors", async () => {
     expect(() => py.callSync(pymodule, "error")).toThrow("module 'nodetest' has no attribute 'error'");
 
     expect(() => py.callSync(pymodule, function(){})).toThrow("Wrong type of arguments");
-    expect(() => py.callSync(pymodule, "dump", function(){})).toThrow("Invalid parameter: unknown type");
-    await expect(py.call(pymodule, "dump", function(){})).rejects.toThrow("Invalid parameter: unknown type");
 
     await expect(py.call(pymodule, "dump")).rejects.toEqual("dump() missing 2 required positional arguments: 'a' and 'b'");
     expect(() => py.callSync(pymodule, "dump")).toThrow("dump() missing 2 required positional arguments: 'a' and 'b'");
@@ -144,8 +144,6 @@ it("nodecallspython errors", async () => {
 
     await expect(py.create(pymodule, "Calculator2")).rejects.toEqual("module 'nodetest' has no attribute 'Calculator2'");
     expect(() => py.createSync(pymodule, "Calculator2")).toThrow("module 'nodetest' has no attribute 'Calculator2'");
-    expect(() => py.createSync(pymodule, "Calculator2", function(){})).toThrow("Invalid parameter: unknown type");
-    await expect(py.create(pymodule, "Calculator2", function(){})).rejects.toThrow("Invalid parameter: unknown type");
 
     await expect(py.import(path.join(__dirname, "error.py"))).rejects.toEqual("No module named 'error'");
     expect(() => py.importSync(path.join(__dirname, "error.py"))).toThrow("No module named 'error'");
@@ -289,4 +287,79 @@ it("nodecallspython buffers", () => {
 
     result = new Float32Array(py.callSync(pymodule, "testBufferEmpty", true));
     expect(result.length).toEqual(0);
+});
+
+
+it("nodecallspython functions async", async () => {
+
+    py.setSyncJsAndPyInCallback(false);
+
+    for (let i=0;i<1000;++i)
+    {
+        let called = false;
+        function callback()
+        {
+            called = true;
+        }
+
+        expect(py.callSync(pymodule, "testFunction", 0, callback)).toEqual(2);
+        expect(called).toEqual(true);
+        expect(await py.call(pymodule, "testFunction", 0, callback)).toEqual(2);
+
+        called = false;
+        let count = 1;
+        function callbackArgs(param1, param2, param3)
+        {
+            if (param1 == 123)
+                called = true;
+        }
+
+        expect(py.callSync(pymodule, "testFunction", 1, callbackArgs)).toEqual(22);
+        expect(called).toEqual(true);
+        expect(await py.call(pymodule, "testFunction", 1, callbackArgs)).toEqual(22);
+    }
+});
+
+it("nodecallspython functions promise", async () => {
+    
+    py.setSyncJsAndPyInCallback(true);
+
+    for (let i=0;i<1000;++i)
+    {
+        let count = 0;
+        function callback()
+        {
+            ++count;
+            return 4;
+        }
+
+        expect(py.callSync(pymodule, "testFunctionPromise", 0, callback)).toEqual(4);
+        expect(await py.call(pymodule, "testFunctionPromise", 0, callback)).toEqual(4);
+        expect(count).toEqual(2);
+
+        count = 0;
+        function callbackArgs(param1, param2, param3)
+        {
+            if (count % 2 == 0)
+            {
+                expect(param1).toEqual(123);
+                expect(param2).toEqual([ 1, 2, 4 ]);
+                expect(param3).toEqual({ "a": 1, "b": 2 });
+            }
+            else
+            {
+                expect(param1).toEqual(375);
+                expect(param2).toEqual(undefined);
+                expect(param3).toEqual(undefined);
+            }
+
+            ++count;
+
+            return 3;
+        }
+
+        expect(py.callSync(pymodule, "testFunctionPromise", 1, callbackArgs)).toEqual(66);
+        expect(await py.call(pymodule, "testFunctionPromise", 1, callbackArgs)).toEqual(66);
+        expect(count).toEqual(4);
+    }
 });

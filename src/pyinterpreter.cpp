@@ -3,10 +3,10 @@
 #include <iostream>
 #include <csignal>
 #include <cstdlib>
+#include <future>
 
 using namespace nodecallspython;
 
-std::mutex nodecallspython::GIL::m_mutex;
 bool nodecallspython::PyInterpreter::m_inited = false;
 std::mutex nodecallspython::PyInterpreter::m_mutex;
 
@@ -18,7 +18,7 @@ namespace
     }
 }
 
-PyInterpreter::PyInterpreter() : m_state(nullptr)
+PyInterpreter::PyInterpreter() : m_state(nullptr), m_syncJsAndPy(true)
 {
     std::lock_guard<std::mutex> l(m_mutex);
 
@@ -60,6 +60,293 @@ PyInterpreter::~PyInterpreter()
 
 namespace
 {
+    napi_value convert(napi_env env, PyObject* obj);
+
+    napi_value fillArray(napi_env env, CPyObject& iterator, napi_value array)
+    {
+        PyObject *item;
+        auto i = 0;
+        while ((item = PyIter_Next(*iterator))) 
+        {
+            CHECK(napi_set_element(env, array, i, ::convert(env, item)));
+            Py_DECREF(item);
+            ++i;
+        }
+
+        return array;
+    }
+
+    napi_value createArrayBuffer(napi_env env, size_t size, const char* ptr)
+    {
+        void* data = nullptr;
+        napi_value buffer;
+        CHECK(napi_create_arraybuffer(env, size, &data, &buffer));
+        if (size && ptr)
+            memcpy(data, ptr, size);
+        return buffer;
+    }
+
+    napi_value convert(napi_env env, PyObject* obj)
+    {
+        if (PyBool_Check(obj))
+        {
+            napi_value result;
+            CHECK(napi_get_boolean(env, obj == Py_True, &result));
+            return result;
+        }
+        else if (PyUnicode_Check(obj))
+        {
+            Py_ssize_t size;
+            auto str = PyUnicode_AsUTF8AndSize(obj, &size);
+
+            napi_value result;
+            CHECK(napi_create_string_utf8(env, str, size, &result));
+            return result;
+        }
+        else if (PyLong_Check(obj))
+        {
+            napi_value result;
+            CHECK(napi_create_int64(env, PyLong_AsLong(obj), &result));
+            return result;
+        }
+        else if (PyFloat_Check(obj))
+        {
+            napi_value result;
+            CHECK(napi_create_double(env, PyFloat_AsDouble(obj), &result));
+            return result;
+        }
+        else if (PyList_Check(obj))
+        {
+            auto length = PyList_Size(obj);
+            napi_value array;
+            CHECK(napi_create_array_with_length(env, length, &array));
+
+            for (auto i = 0u; i < length; ++i)
+                CHECK(napi_set_element(env, array, i, convert(env, PyList_GetItem(obj, i))));
+
+            return array;
+        }
+        else if (PyTuple_Check(obj))
+        {
+            auto length = PyTuple_Size(obj);
+            napi_value array;
+            CHECK(napi_create_array_with_length(env, length, &array));
+
+            for (auto i = 0u; i < length; ++i)
+                CHECK(napi_set_element(env, array, i, convert(env, PyTuple_GetItem(obj, i))));
+
+            return array;
+        }
+        else if (PySet_Check(obj))
+        {
+            auto length = PySet_Size(obj);
+            napi_value array;
+            CHECK(napi_create_array_with_length(env, length, &array));
+
+            CPyObject iterator = PyObject_GetIter(obj);
+
+            return fillArray(env, iterator, array);
+        }
+        else if (PyBytes_Check(obj))
+        {
+            auto size = PyBytes_Size(obj);
+            auto ptr = PyBytes_AsString(obj);
+
+            return createArrayBuffer(env, size, ptr);
+        }
+        else if (PyByteArray_Check(obj))
+        {
+            auto size = PyByteArray_Size(obj);
+            auto ptr = PyByteArray_AsString(obj);
+
+            return createArrayBuffer(env, size, ptr);
+        }
+        else if (PyDict_Check(obj))
+        {
+            napi_value object;
+            CHECK(napi_create_object(env, &object));
+
+            PyObject *key, *value;
+            Py_ssize_t pos = 0;
+
+            while (PyDict_Next(obj, &pos, &key, &value))
+                CHECK(napi_set_property(env, object, convert(env, key), convert(env, value)));
+
+            return object;
+        }
+        else if (obj == Py_None)
+        {
+            napi_value undefined;
+            CHECK(napi_get_undefined(env, &undefined));
+            return undefined;
+        }
+        else
+        {
+            CPyObject iterator = PyObject_GetIter(obj);
+            if (iterator)
+            {
+                napi_value array;
+                CHECK(napi_create_array(env, &array));
+
+                return fillArray(env, iterator, array);
+            }
+            else
+            {
+                // attempt to force convert to support numpy arrays
+                PyErr_Clear();
+
+                // cannot decide between int and double if we do not know the type here, so cast everything to double
+                auto value = PyFloat_AsDouble(obj);
+                if (!PyErr_Occurred())
+                {
+                    napi_value result;
+                    CHECK(napi_create_double(env, value, &result));
+                    return result;
+                }
+                else
+                {
+                    PyErr_Clear();
+                    Py_ssize_t size;
+                    auto str = PyUnicode_AsUTF8AndSize(obj, &size);
+                    if (str)
+                    {
+                        napi_value result;
+                        CHECK(napi_create_string_utf8(env, str, size, &result));
+                        return result;
+                    }
+                    PyErr_Clear();
+                }
+
+                napi_value undefined;
+                CHECK(napi_get_undefined(env, &undefined));
+                return undefined;
+            }
+        }
+    }
+
+    std::vector<napi_value> convertParams(napi_env env, void* data)
+    {
+        std::vector<napi_value> params;
+        auto obj = reinterpret_cast<PyObject*>(data);
+        auto length = PyTuple_Size(obj);
+        params.reserve(length);
+        for (auto i = 0u; i < length; ++i)
+            params.push_back(convert(env, PyTuple_GetItem(obj, i)));
+        return params;
+    }
+
+    napi_value callJsImpl(napi_env env, napi_value func, const std::vector<napi_value>& params)
+    {
+        napi_value undefined, result;
+        napi_get_undefined(env, &undefined);
+        napi_call_function(env, undefined, func, params.size(), params.data(), &result);
+        return result;
+    }
+
+    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, bool isSync, bool allowFunc, bool syncJsAndPy);
+
+    void callJs(napi_env env, napi_value func, void* context, void* data) 
+    {
+        auto gstate = PyGILState_Ensure();
+        try
+        {
+            CPyObject args(reinterpret_cast<PyObject*>(data));
+            auto params = convertParams(env, *args);
+
+            callJsImpl(env, func, params);
+        }
+        catch(std::exception&)
+        {            
+        }
+        PyGILState_Release(gstate);
+    }
+
+    PyObject* __callback_function_napi_async(PyObject *self, PyObject* args)
+    {
+        auto func = reinterpret_cast<napi_threadsafe_function*>(PyCapsule_GetPointer(self, nullptr));
+        Py_INCREF(args);
+        napi_call_threadsafe_function(*func, args, napi_tsfn_nonblocking);
+        Py_RETURN_NONE;
+    }
+
+    struct Promise
+    {
+        std::promise<PyObject*> promise;
+        PyObject* args;
+
+        Promise(PyObject* args) : args(args)
+        {            
+        }
+    };
+
+    void callJsPromise(napi_env env, napi_value func, void* context, void* data) 
+    {
+        auto promise = reinterpret_cast<Promise*>(data);
+        try
+        {
+            auto gstate = PyGILState_Ensure();
+            auto params = convertParams(env, promise->args);
+            Py_DECREF(promise->args);
+            PyGILState_Release(gstate);
+
+            auto result = callJsImpl(env, func, params);
+
+            gstate = PyGILState_Ensure();
+            auto pyResult = convert(env, result, true, false, false).first;
+            PyGILState_Release(gstate);
+            promise->promise.set_value(pyResult);
+        }
+        catch(std::exception&)
+        {           
+            promise->promise.set_value(nullptr); 
+        }
+    }
+
+    PyObject* __callback_function_napi_async_promise(PyObject *self, PyObject* args)
+    {
+        auto func = reinterpret_cast<napi_threadsafe_function*>(PyCapsule_GetPointer(self, nullptr));
+        Py_INCREF(args);
+        auto promise = std::make_unique<Promise>(args);
+        auto future = promise->promise.get_future();
+
+        Py_BEGIN_ALLOW_THREADS;
+        napi_call_threadsafe_function(*func, promise.get(), napi_tsfn_nonblocking);
+        future.wait();
+        Py_END_ALLOW_THREADS;
+
+        return future.get();
+    }
+
+    struct SycnCallback
+    {
+        napi_env env;
+        napi_value func;
+    };
+
+    PyObject* __callback_function_napi_sync(PyObject *self, PyObject* args)
+    {
+        auto func = reinterpret_cast<SycnCallback*>(PyCapsule_GetPointer(self, nullptr));
+        auto params = convertParams(func->env, args);
+        auto result = callJsImpl(func->env, func->func, params);
+        return convert(func->env, result, true, false, false).first;
+    }
+
+    void capsuleDestructor(PyObject* obj)
+    {
+        auto func = reinterpret_cast<napi_threadsafe_function*>(PyCapsule_GetPointer(obj, nullptr));
+        napi_release_threadsafe_function(*func, napi_tsfn_abort);
+        delete func;
+    }
+
+    void capsuleDestructorSync(PyObject* obj)
+    {
+        delete reinterpret_cast<SycnCallback*>(PyCapsule_GetPointer(obj, nullptr));
+    }
+
+    PyMethodDef mlAsync = { "__callback_function_napi_async", (PyCFunction)(void(*)(void))__callback_function_napi_async, METH_VARARGS, nullptr };
+    PyMethodDef mlAsyncPromise = { "__callback_function_napi_async_promise", (PyCFunction)(void(*)(void))__callback_function_napi_async_promise, METH_VARARGS, nullptr };
+    PyMethodDef mlSync = { "__callback_function_napi_sync", (PyCFunction)(void(*)(void))__callback_function_napi_sync, METH_VARARGS, nullptr };
+
     PyObject* handleInteger(napi_env env, napi_value arg)
     {
         //handle integers
@@ -85,7 +372,7 @@ namespace
             return PyLong_FromLong(i);
     }
 
-    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg)
+    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, bool isSync, bool allowFunc, bool syncJsAndPy)
     {
         napi_valuetype type;
         CHECK(napi_typeof(env, arg, &type));
@@ -104,7 +391,7 @@ namespace
             {
                 napi_value value;
                 CHECK(napi_get_element(env, arg, i, &value));
-                PyList_SetItem(list, i, ::convert(env, value).first);
+                PyList_SetItem(list, i, ::convert(env, value, isSync, allowFunc, syncJsAndPy).first);
             }
 
             return { list, false };
@@ -175,7 +462,6 @@ namespace
             auto* bytes = PyBytes_FromStringAndSize((const char*)data, len);
             return { bytes, false };
         }
-
         else if (type == napi_undefined || type == napi_null)
         {
             Py_INCREF(Py_None);
@@ -248,9 +534,9 @@ namespace
                     kwargs = true;
                 else
                 {
-                    CPyObject pykey = ::convert(env, key).first;
+                    CPyObject pykey = ::convert(env, key, isSync, allowFunc, syncJsAndPy).first;
 
-                    CPyObject pyvalue = ::convert(env, value).first;
+                    CPyObject pyvalue = ::convert(env, value, isSync, allowFunc, syncJsAndPy).first;
 
                     PyDict_SetItem(dict, *pykey, *pyvalue);
                 }
@@ -258,26 +544,56 @@ namespace
 
             return { dict, kwargs };
         }
+        else if (type == napi_function && allowFunc)
+        {
+            if (isSync)
+            {
+                CPyObject capsule = PyCapsule_New(new SycnCallback{env, arg}, nullptr, capsuleDestructorSync);
+                auto function = PyCFunction_New(&mlSync, *capsule);
+                return { function, false };
+            }
+            else
+            {
+                auto tsfn = new napi_threadsafe_function;
+
+                napi_value workName;
+                CHECK(napi_create_string_utf8(env, "ThreadSafeCallback", NAPI_AUTO_LENGTH, &workName));
+
+                CPyObject capsule = PyCapsule_New(tsfn, nullptr, capsuleDestructor);
+                PyObject* function = nullptr;
+                if (syncJsAndPy)
+                {
+                    CHECK(napi_create_threadsafe_function(env, arg, nullptr, workName, 0, 1, nullptr, nullptr, nullptr, callJsPromise, tsfn));
+                    function = PyCFunction_New(&mlAsyncPromise, *capsule);
+                }
+                else
+                {
+                    CHECK(napi_create_threadsafe_function(env, arg, nullptr, workName, 0, 1, nullptr, nullptr, nullptr, callJs, tsfn));
+                    function = PyCFunction_New(&mlAsync, *capsule);
+                }
+
+                return { function, false };
+            }
+        }
         else
             return { handleInteger(env, arg), false };
 
         throw std::runtime_error("Invalid parameter: unknown type");
-    }
-}
+    }}
 
-std::pair<CPyObject, CPyObject> PyInterpreter::convert(napi_env env, const std::vector<napi_value>& args)
+std::pair<CPyObject, CPyObject> PyInterpreter::convert(napi_env env, const std::vector<napi_value>& args, bool isSync)
 {
     std::vector<PyObject*> paramsVect;
+    CPyObject kwargs;
     paramsVect.reserve(args.size());
-    CPyObject kwparams;
     for (auto i=0u;i<args.size();++i)
     {
-        auto cparams = ::convert(env, args[i]);
+        auto cparams = ::convert(env, args[i], isSync, true, m_syncJsAndPy);
         if (!cparams.first)
             throw std::runtime_error("Cannot convert #" + std::to_string(i + 1) + " argument");
 
         if (cparams.second)
-            kwparams = cparams.first;
+            kwargs = cparams.first;
         else
             paramsVect.push_back(cparams.first);
     }
@@ -287,172 +603,12 @@ std::pair<CPyObject, CPyObject> PyInterpreter::convert(napi_env env, const std::
     for (auto i=0u;i<paramsVect.size();++i)
         PyTuple_SetItem(*params, i, paramsVect[i]);
 
-    return { params, kwparams };
-}
-
-namespace
-{
-    napi_value fillArray(napi_env env, CPyObject& iterator, napi_value array)
-    {
-        PyObject *item;
-        auto i = 0;
-        while ((item = PyIter_Next(*iterator))) 
-        {
-            CHECK(napi_set_element(env, array, i, PyInterpreter::convert(env, item)));
-            Py_DECREF(item);
-            ++i;
-        }
-
-        return array;
-    }
-
-    napi_value createArrayBuffer(napi_env env, size_t size, const char* ptr)
-    {
-        void* data = nullptr;
-        napi_value buffer;
-        CHECK(napi_create_arraybuffer(env, size, &data, &buffer));
-        if (size && ptr)
-            memcpy(data, ptr, size);
-        return buffer;
-    }
+    return { params, kwargs };
 }
 
 napi_value PyInterpreter::convert(napi_env env, PyObject* obj)
 {
-    if (PyBool_Check(obj))
-    {
-        napi_value result;
-        CHECK(napi_get_boolean(env, obj == Py_True, &result));
-        return result;
-    }
-    else if (PyUnicode_Check(obj))
-    {
-        Py_ssize_t size;
-        auto str = PyUnicode_AsUTF8AndSize(obj, &size);
-
-        napi_value result;
-        CHECK(napi_create_string_utf8(env, str, size, &result));
-        return result;
-    }
-    else if (PyLong_Check(obj))
-    {
-        napi_value result;
-        CHECK(napi_create_int64(env, PyLong_AsLong(obj), &result));
-        return result;
-    }
-    else if (PyFloat_Check(obj))
-    {
-        napi_value result;
-        CHECK(napi_create_double(env, PyFloat_AsDouble(obj), &result));
-        return result;
-    }
-    else if (PyList_Check(obj))
-    {
-        auto length = PyList_Size(obj);
-        napi_value array;
-        CHECK(napi_create_array_with_length(env, length, &array));
-
-        for (auto i = 0u; i < length; ++i)
-            CHECK(napi_set_element(env, array, i, convert(env, PyList_GetItem(obj, i))));
-
-        return array;
-    }
-    else if (PyTuple_Check(obj))
-    {
-        auto length = PyTuple_Size(obj);
-        napi_value array;
-        CHECK(napi_create_array_with_length(env, length, &array));
-
-        for (auto i = 0u; i < length; ++i)
-            CHECK(napi_set_element(env, array, i, convert(env, PyTuple_GetItem(obj, i))));
-
-        return array;
-    }
-    else if (PySet_Check(obj))
-    {
-        auto length = PySet_Size(obj);
-        napi_value array;
-        CHECK(napi_create_array_with_length(env, length, &array));
-
-        CPyObject iterator = PyObject_GetIter(obj);
-
-        return fillArray(env, iterator, array);
-    }
-    else if (PyBytes_Check(obj))
-    {
-        auto size = PyBytes_Size(obj);
-        auto ptr = PyBytes_AsString(obj);
-
-        return createArrayBuffer(env, size, ptr);
-    }
-    else if (PyByteArray_Check(obj))
-    {
-        auto size = PyByteArray_Size(obj);
-        auto ptr = PyByteArray_AsString(obj);
-
-        return createArrayBuffer(env, size, ptr);
-    }
-    else if (PyDict_Check(obj))
-    {
-        napi_value object;
-        CHECK(napi_create_object(env, &object));
-
-        PyObject *key, *value;
-        Py_ssize_t pos = 0;
-
-        while (PyDict_Next(obj, &pos, &key, &value))
-            CHECK(napi_set_property(env, object, convert(env, key), convert(env, value)));
-
-        return object;
-    }
-    else if (obj == Py_None)
-    {
-        napi_value undefined;
-        CHECK(napi_get_undefined(env, &undefined));
-        return undefined;
-    }
-    else
-    {
-        CPyObject iterator = PyObject_GetIter(obj);
-        if (iterator)
-        {
-            napi_value array;
-            CHECK(napi_create_array(env, &array));
-
-            return fillArray(env, iterator, array);
-        }
-        else
-        {
-            // attempt to force convert to support numpy arrays
-            PyErr_Clear();
-
-            // cannot decide between int and double if we do not know the type here, so cast everything to double
-            auto value = PyFloat_AsDouble(obj);
-            if (!PyErr_Occurred())
-            {
-                napi_value result;
-                CHECK(napi_create_double(env, value, &result));
-                return result;
-            }
-            else
-            {
-                PyErr_Clear();
-                Py_ssize_t size;
-                auto str = PyUnicode_AsUTF8AndSize(obj, &size);
-                if (str)
-                {
-                    napi_value result;
-                    CHECK(napi_create_string_utf8(env, str, size, &result));
-                    return result;
-                }
-                PyErr_Clear();
-            }
-
-            napi_value undefined;
-            CHECK(napi_get_undefined(env, &undefined));
-            return undefined;
-        }
-    }
+    return ::convert(env, obj);
 }
 
 namespace
@@ -719,4 +875,9 @@ void PyInterpreter::reimport(const std::string& input)
             m_objs[reloadThis.second] = reloaded;
         }
     }
+}
+
+void PyInterpreter::setSyncJsAndPyInCallback(bool syncJsAndPy)
+{
+    m_syncJsAndPy = syncJsAndPy;
 }
