@@ -47,7 +47,7 @@ class Interpreter
         if (stdout)
         {
             const result = stdout.toString().trim().split("\n");
-            if (result.length > 1)
+            if (result.length > 0)
                 return result[0];
         }
         return undefined;

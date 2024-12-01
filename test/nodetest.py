@@ -1,5 +1,6 @@
 import numpy as np
 import nodetestre
+import multiprocessing
 
 def hello():
     print("hello world")
