@@ -7,7 +7,6 @@
 
 using namespace nodecallspython;
 
-std::mutex nodecallspython::GIL::m_mutex;
 bool nodecallspython::PyInterpreter::m_inited = false;
 std::mutex nodecallspython::PyInterpreter::m_mutex;
 
@@ -19,7 +18,7 @@ namespace
     }
 }
 
-PyInterpreter::PyInterpreter() : m_state(nullptr), m_syncJsAndPy(false)
+PyInterpreter::PyInterpreter() : m_state(nullptr), m_syncJsAndPy(true)
 {
     std::lock_guard<std::mutex> l(m_mutex);
 
@@ -248,26 +247,25 @@ namespace
 
     void callJs(napi_env env, napi_value func, void* context, void* data) 
     {
+        auto gstate = PyGILState_Ensure();
         try
         {
-            auto gstate = PyGILState_Ensure();
-            auto args = reinterpret_cast<PyObject*>(data);
-            auto params = convertParams(env, args);
-            Py_DECREF(args);
-            PyGILState_Release(gstate);
+            CPyObject args(reinterpret_cast<PyObject*>(data));
+            auto params = convertParams(env, *args);
 
             callJsImpl(env, func, params);
         }
         catch(std::exception& e)
         {            
         }
+        PyGILState_Release(gstate);
     }
 
     PyObject* __callback_function_napi_async(PyObject *self, PyObject* args)
     {
         auto func = reinterpret_cast<napi_threadsafe_function*>(PyCapsule_GetPointer(self, nullptr));
         Py_INCREF(args);
-        napi_call_threadsafe_function(*func, args, napi_tsfn_blocking);
+        napi_call_threadsafe_function(*func, args, napi_tsfn_nonblocking);
         Py_RETURN_NONE;
     }
 

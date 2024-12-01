@@ -12,19 +12,19 @@ namespace nodecallspython
     class GIL
     {
         PyGILState_STATE m_gstate;
-        static std::mutex m_mutex;
     public:
         GIL()
         {
-            m_mutex.lock();
             m_gstate = PyGILState_Ensure();
         }
 
         ~GIL()
         {
             PyGILState_Release(m_gstate);
-            m_mutex.unlock();
         }
+
+        GIL(const GIL&) = delete;
+        GIL& operator=(const GIL&) = delete;
     };
 
     class PyInterpreter

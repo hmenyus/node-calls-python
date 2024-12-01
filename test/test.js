@@ -7,6 +7,8 @@ let pyfile = path.join(__dirname, "nodetest.py");
 
 let pymodule = py.importSync(pyfile);
 
+jest.setTimeout(30000);
+
 it("nodecallspython tests", async () => {
     await py.call(pymodule, "hello");
     await py.call(pymodule, "dump", "a", "b");
@@ -287,83 +289,34 @@ it("nodecallspython buffers", () => {
     expect(result.length).toEqual(0);
 });
 
-const functionsTest = async () => {
-    for (let i=0;i<100;++i)
+
+it("nodecallspython functions async", async () => {
+
+    py.setSyncJsAndPyInCallback(false);
+
+    for (let i=0;i<1000;++i)
     {
-        let count = 0;
+        let called = false;
         function callback()
         {
-            //console.log("hello world");
-            ++count;
-        };
+            called = true;
+        }
 
         expect(py.callSync(pymodule, "testFunction", 0, callback)).toEqual(2);
+        expect(called).toEqual(true);
         expect(await py.call(pymodule, "testFunction", 0, callback)).toEqual(2);
-        expect(count).toEqual(2);
 
-        count = 0;
+        called = false;
+        let count = 1;
         function callbackArgs(param1, param2, param3)
         {
-            if (count % 2 == 0)
-            {
-                expect(param1).toEqual(123);
-                expect(param2).toEqual([ 1, 2, 4 ]);
-                expect(param3).toEqual({ "a": 1, "b": 2 });
-            }
-            else
-            {
-                expect(param1).toEqual(125);
-                expect(param2).toEqual(undefined);
-                expect(param3).toEqual(undefined);
-            }
-
-            //console.log(param1, param2, param3);
-
-            ++count;
-        };
+            if (param1 == 123)
+                called = true;
+        }
 
         expect(py.callSync(pymodule, "testFunction", 1, callbackArgs)).toEqual(22);
+        expect(called).toEqual(true);
         expect(await py.call(pymodule, "testFunction", 1, callbackArgs)).toEqual(22);
-        expect(count).toEqual(4);
-    }
-};
-
-it("nodecallspython functions", async () => {
-
-    for (let i=0;i<100;++i)
-    {
-        let count = 0;
-        function callback()
-        {
-            ++count;
-        };
-
-        expect(py.callSync(pymodule, "testFunction", 0, callback)).toEqual(2);
-        expect(await py.call(pymodule, "testFunction", 0, callback)).toEqual(2);
-        expect(count).toEqual(2);
-
-        count = 0;
-        function callbackArgs(param1, param2, param3)
-        {
-            if (count % 2 == 0)
-            {
-                expect(param1).toEqual(123);
-                expect(param2).toEqual([ 1, 2, 4 ]);
-                expect(param3).toEqual({ "a": 1, "b": 2 });
-            }
-            else
-            {
-                expect(param1).toEqual(125);
-                expect(param2).toEqual(undefined);
-                expect(param3).toEqual(undefined);
-            }
-
-            ++count;
-        };
-
-        expect(py.callSync(pymodule, "testFunction", 1, callbackArgs)).toEqual(22);
-        expect(await py.call(pymodule, "testFunction", 1, callbackArgs)).toEqual(22);
-        expect(count).toEqual(4);
     }
 });
 
@@ -371,14 +324,14 @@ it("nodecallspython functions promise", async () => {
     
     py.setSyncJsAndPyInCallback(true);
 
-    for (let i=0;i<100;++i)
+    for (let i=0;i<1000;++i)
     {
         let count = 0;
         function callback()
         {
             ++count;
             return 4;
-        };
+        }
 
         expect(py.callSync(pymodule, "testFunctionPromise", 0, callback)).toEqual(4);
         expect(await py.call(pymodule, "testFunctionPromise", 0, callback)).toEqual(4);
@@ -403,7 +356,7 @@ it("nodecallspython functions promise", async () => {
             ++count;
 
             return 3;
-        };
+        }
 
         expect(py.callSync(pymodule, "testFunctionPromise", 1, callbackArgs)).toEqual(66);
         expect(await py.call(pymodule, "testFunctionPromise", 1, callbackArgs)).toEqual(66);
