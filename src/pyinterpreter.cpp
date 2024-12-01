@@ -255,7 +255,7 @@ namespace
 
             callJsImpl(env, func, params);
         }
-        catch(std::exception& e)
+        catch(std::exception&)
         {            
         }
         PyGILState_Release(gstate);
@@ -296,7 +296,7 @@ namespace
             PyGILState_Release(gstate);
             promise->promise.set_value(pyResult);
         }
-        catch(std::exception& e)
+        catch(std::exception&)
         {           
             promise->promise.set_value(nullptr); 
         }
