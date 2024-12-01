@@ -25,6 +25,9 @@ namespace nodecallspython
 
         GIL(const GIL&) = delete;
         GIL& operator=(const GIL&) = delete;
+
+        GIL(GIL&&) = delete;
+        GIL& operator=(GIL&&) = delete;
     };
 
     class PyInterpreter
