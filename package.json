@@ -1,6 +1,6 @@
 {
   "name": "node-calls-python",
-  "version": "1.11.0",
+  "version": "1.11.1",
   "license": "MIT",
   "description": "This module lets you run python code inside node without spawning new processes",
   "authors": [
@@ -31,7 +31,6 @@
     "index.js",
     "index.mjs",
     "src/",
-    "test/",
     "scripts/"
   ],
   "main": "index.js",
