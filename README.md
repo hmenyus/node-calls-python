@@ -269,6 +269,13 @@ In this case, one possible order of the execution could look like this (the actu
 
 Because jsFunction runs async, it is not possible to pass the result of jsFunction back to Python. But passing arguments from Python to jsFunction is still possible.
 
+### Working with Python multiprocessing
+Python uses sys.executable variable when creating new processes. Because the interpreter is embedded into Node, sys.executable points to the Node executable. ***node-calls-python*** automatically overrides this setting in the multiprocessing module to point to the real Python executable. In case it does not work or you want to use a different Python executable, call ***setPythonExecutable(absolute-path-to-your-python-executable)*** before using the multiprocessing module.
+```javascript
+py.setPythonExecutable(absolute-path-to-your-python-executable);
+```
+
+
 ### Doing some ML with Python and Node
 Let's say you have the following python code in **logreg.py**
 ```python
