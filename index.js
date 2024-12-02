@@ -96,7 +96,6 @@ class Interpreter
         }
         catch(e)
         {
-            throw e;
         }
     }
 
