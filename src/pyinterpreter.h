@@ -5,29 +5,32 @@
 #include <string>
 #include <mutex>
 #include <unordered_map>
+#include <thread>
 #include <iostream>
 
 namespace nodecallspython
 {
+    class PyInterpreter;
+
     class GIL
     {
-        PyGILState_STATE m_gstate;
-    public:
-        GIL()
-        {
-            m_gstate = PyGILState_Ensure();
-        }
+        friend class PyInterpreter;
 
-        ~GIL()
-        {
-            PyGILState_Release(m_gstate);
-        }
+        PyThreadState* m_ts;
+        bool m_release;
+
+        GIL(PyThreadState *ts, bool release);
+
+    public:
+
+        ~GIL();
 
         GIL(const GIL&) = delete;
         GIL& operator=(const GIL&) = delete;
 
         GIL(GIL&&) = delete;
-        GIL& operator=(GIL&&) = delete;
+        
+        GIL& operator=(GIL&& other);
     };
 
     class PyInterpreter
@@ -36,12 +39,16 @@ namespace nodecallspython
         std::unordered_map<std::string, CPyObject> m_objs;
         std::unordered_map<PyObject*, std::string> m_imports;
         bool m_syncJsAndPy;
+        std::thread::id m_mainThread;
+
         static std::mutex m_mutex;
         static bool m_inited;
     public:
         PyInterpreter();
 
         ~PyInterpreter();
+
+        GIL gil();
 
         std::pair<CPyObject, CPyObject> convert(napi_env env, const std::vector<napi_value>& args, bool isSync);
 

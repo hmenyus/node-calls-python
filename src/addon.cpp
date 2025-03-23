@@ -50,7 +50,7 @@ namespace nodecallspython
 
         ~CallTask()
         {
-            GIL gil;
+            auto gil = m_py->gil();
             m_args = CPyObject();
             m_kwargs = CPyObject();
             m_result = CPyObject();
@@ -67,7 +67,7 @@ namespace nodecallspython
 
         ~ExecTask()
         {
-            GIL gil;
+            auto gil = m_py->gil();
             m_result = CPyObject();
         }
     };
@@ -82,7 +82,7 @@ namespace nodecallspython
 
         ~Handler()
         {
-            GIL gil;
+            auto gil = m_py->gil();
             m_py->release(m_handler);
         }
 
@@ -119,7 +119,7 @@ namespace nodecallspython
     static void CallAsync(napi_env env, void* data)
     {
         auto task = static_cast<CallTask*>(data);
-        GIL gil;
+        auto gil = task->m_py->gil();
         try
         {
             if (task->m_isFunc)
@@ -136,7 +136,7 @@ namespace nodecallspython
     static void ExecAsync(napi_env env, void* data)
     {
         auto task = static_cast<ExecTask*>(data);
-        GIL gil;
+        auto gil = task->m_py->gil();
         try
         {
             task->m_result = task->m_py->exec(task->m_handler, task->m_code, task->m_eval);
@@ -150,7 +150,7 @@ namespace nodecallspython
     static void ImportAsync(napi_env env, void* data)
     {
         auto task = static_cast<ImportTask*>(data);
-        GIL gil;
+        auto gil = task->m_py->gil();
         try
         {
             task->m_handler = task->m_py->import(task->m_name, task->m_allowReimport);
@@ -218,7 +218,7 @@ namespace nodecallspython
             napi_value args;
             if (task->m_isFunc)
             {
-                GIL gil;
+                auto gil = task->m_py->gil();
                 args = task->m_py->convert(env, *task->m_result);
             }
             else
@@ -247,7 +247,7 @@ namespace nodecallspython
             CHECK(napi_get_global(env, &global));
 
             napi_value args;
-            GIL gil;
+            auto gil = task->m_py->gil();
             args = task->m_py->convert(env, *task->m_result);
 
             napi_value callback;
@@ -342,8 +342,8 @@ namespace nodecallspython
 
                     if (sync)
                     {
-                        GIL gil;
                         auto& py = obj->getInterpreter();
+                        auto gil = py.gil();
                         auto pyArgs = py.convert(env, napiargs, true);
 
                         napi_value result;
@@ -381,7 +381,7 @@ namespace nodecallspython
                             napi_create_string_utf8(env, "Python::call", NAPI_AUTO_LENGTH, &optname);
 
                             {
-                                GIL gil;
+                                auto gil = task->m_py->gil();
                                 std::tie(task->m_args, task->m_kwargs) = obj->getInterpreter().convert(env, napiargs, false);
                             }
 
@@ -437,10 +437,10 @@ namespace nodecallspython
                     napi_value value;
                     CHECKNULL(napi_get_property(env, args[0], key, &value));
 
+                    auto& py = obj->getInterpreter();
                     if (sync)
                     {
-                        GIL gil;
-                        auto& py = obj->getInterpreter();
+                        auto gil = py.gil();
                         auto pyres = py.exec(convertString(env, value), convertString(env, args[1]), eval);
                         napi_value result;
                         if (pyres)
@@ -457,8 +457,10 @@ namespace nodecallspython
                         if (callbackT == napi_function)
                         {
                             ExecTask* task = new ExecTask;
-                            task->m_py = &(obj->getInterpreter());
+                            
+                            auto gil = py.gil();
 
+                            task->m_py = &py;
                             task->m_handler = convertString(env, value);
                             task->m_code = convertString(env, args[1]);
                             task->m_eval = eval;
@@ -517,9 +519,9 @@ namespace nodecallspython
 
                     if (sync)
                     {
-                        GIL gil;
-                        auto name = convertString(env, args[0]);
                         auto& py = obj->getInterpreter();
+                        auto gil = py.gil();
+                        auto name = convertString(env, args[0]);
 
                         auto handler = py.import(name, allowReimport);
                         return createHandler(env, &py, handler);
@@ -730,7 +732,7 @@ namespace nodecallspython
             auto& py = obj->getInterpreter();
             try
             {
-                GIL gil;
+                auto gil = py.gil();
                 py.reimport(directory);
             }
             catch(const std::exception& e)
@@ -752,7 +754,7 @@ namespace nodecallspython
             auto& py = obj->getInterpreter();
             try
             {
-                GIL gil;
+                auto gil = py.gil();
                 py.addImportPath(path);
             }
             catch(const std::exception& e)

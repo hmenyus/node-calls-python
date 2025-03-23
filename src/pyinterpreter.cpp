@@ -10,6 +10,35 @@ using namespace nodecallspython;
 bool nodecallspython::PyInterpreter::m_inited = false;
 std::mutex nodecallspython::PyInterpreter::m_mutex;
 
+GIL::GIL(PyThreadState *ts, bool release) : m_ts(ts), m_release(release)
+{
+    if (m_ts)
+        PyEval_RestoreThread(m_ts);
+}
+
+GIL::~GIL()
+{
+    if (m_ts)
+    {
+        if (m_release)
+            PyThreadState_Clear(m_ts);
+        PyEval_SaveThread();
+        if (m_release)
+            PyThreadState_Delete(m_ts);
+    }
+}
+
+GIL& GIL::operator=(GIL&& other)
+{
+    m_ts = other.m_ts;
+    other.m_ts = nullptr;
+    
+    m_release = other.m_release;
+    other.m_release = false;
+    
+    return *this;
+}
+
 namespace
 {
     void signal_handler_int(int)
@@ -32,20 +61,22 @@ PyInterpreter::PyInterpreter() : m_state(nullptr), m_syncJsAndPy(true)
 #endif
 
         Py_DECREF(PyImport_ImportModule("threading"));
-
-        m_state = PyEval_SaveThread();
-
+        
         if (!std::getenv("NODE_CALLS_PYTHON_IGNORE_SIGINT"))
             PyOS_setsig(SIGINT, ::signal_handler_int);
 
+        m_mainThread = std::this_thread::get_id();
+
         m_inited = true;
+
+        m_state = PyEval_SaveThread();
     }
 }
 
 PyInterpreter::~PyInterpreter()
 {
     {
-        GIL gil;
+        auto gil = this->gil();
         m_objs = {};
     }
 
@@ -53,6 +84,17 @@ PyInterpreter::~PyInterpreter()
     {
         PyEval_RestoreThread(m_state);
         Py_Finalize();
+    }
+}
+
+GIL PyInterpreter::gil()
+{
+    if (m_mainThread == std::this_thread::get_id())
+        return GIL(m_state, false);
+    else
+    {
+        auto* tstate = PyThreadState_New(PyInterpreterState_Main());
+        return GIL(tstate, true);
     }
 }
 
@@ -243,14 +285,21 @@ namespace
         return result;
     }
 
-    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, bool isSync, bool allowFunc, bool syncJsAndPy);
+    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, PyInterpreter* interpreter, bool isSync, bool allowFunc, bool syncJsAndPy);
+
+    struct AsyncCall
+    {
+        PyInterpreter* interpreter;
+        PyObject* args;
+    };
 
     void callJs(napi_env env, napi_value func, void* context, void* data) 
     {
-        GIL gil;
+        std::unique_ptr<AsyncCall> call(reinterpret_cast<AsyncCall*>(data));
+        auto gil = call->interpreter->gil();
         try
         {
-            CPyObject args(reinterpret_cast<PyObject*>(data));
+            CPyObject args(call->args);
             auto params = convertParams(env, *args);
 
             callJsImpl(env, func, params);
@@ -260,20 +309,27 @@ namespace
         }
     }
 
+    struct AsyncCallback
+    {
+        napi_threadsafe_function* func;
+        PyInterpreter* interpreter;
+    };
+
     PyObject* __callback_function_napi_async(PyObject *self, PyObject* args)
     {
-        auto func = reinterpret_cast<napi_threadsafe_function*>(PyCapsule_GetPointer(self, nullptr));
+        auto func = reinterpret_cast<AsyncCallback*>(PyCapsule_GetPointer(self, nullptr));
         Py_INCREF(args);
-        napi_call_threadsafe_function(*func, args, napi_tsfn_nonblocking);
+        napi_call_threadsafe_function(*func->func, new AsyncCall{func->interpreter, args}, napi_tsfn_nonblocking);
         Py_RETURN_NONE;
     }
 
     struct Promise
     {
         std::promise<PyObject*> promise;
+        PyInterpreter* interpreter;
         PyObject* args;
 
-        Promise(PyObject* args) : args(args)
+        Promise(PyInterpreter* interpreter, PyObject* args) : interpreter(interpreter), args(args)
         {            
         }
     };
@@ -285,7 +341,7 @@ namespace
         {
             std::vector<napi_value> params;
             {
-                GIL gil;
+                auto gil = promise->interpreter->gil();
                 CPyObject args(promise->args);
                 params = convertParams(env, *args);
             }
@@ -293,8 +349,8 @@ namespace
             auto result = callJsImpl(env, func, params);
 
             {
-                GIL gil;
-                auto pyResult = convert(env, result, true, false, false).first;
+                auto gil = promise->interpreter->gil();
+                auto pyResult = convert(env, result, promise->interpreter, true, false, false).first;
                 promise->promise.set_value(pyResult);
             }
         }
@@ -306,13 +362,13 @@ namespace
 
     PyObject* __callback_function_napi_async_promise(PyObject *self, PyObject* args)
     {
-        auto func = reinterpret_cast<napi_threadsafe_function*>(PyCapsule_GetPointer(self, nullptr));
+        auto func = reinterpret_cast<AsyncCallback*>(PyCapsule_GetPointer(self, nullptr));
         Py_INCREF(args);
-        auto promise = std::make_unique<Promise>(args);
+        auto promise = std::make_unique<Promise>(func->interpreter, args);
         auto future = promise->promise.get_future();
 
         Py_BEGIN_ALLOW_THREADS;
-        napi_call_threadsafe_function(*func, promise.get(), napi_tsfn_nonblocking);
+        napi_call_threadsafe_function(*func->func, promise.get(), napi_tsfn_nonblocking);
         future.wait();
         Py_END_ALLOW_THREADS;
 
@@ -323,20 +379,22 @@ namespace
     {
         napi_env env;
         napi_value func;
+        PyInterpreter* interpreter;
     };
 
-    PyObject* __callback_function_napi_sync(PyObject *self, PyObject* args)
+    PyObject* __callback_function_napi_sync(PyObject* self, PyObject* args)
     {
         auto func = reinterpret_cast<SycnCallback*>(PyCapsule_GetPointer(self, nullptr));
         auto params = convertParams(func->env, args);
         auto result = callJsImpl(func->env, func->func, params);
-        return convert(func->env, result, true, false, false).first;
+        return convert(func->env, result, func->interpreter, true, false, false).first;
     }
 
     void capsuleDestructor(PyObject* obj)
     {
-        auto func = reinterpret_cast<napi_threadsafe_function*>(PyCapsule_GetPointer(obj, nullptr));
-        napi_release_threadsafe_function(*func, napi_tsfn_abort);
+        auto func = reinterpret_cast<AsyncCallback*>(PyCapsule_GetPointer(obj, nullptr));
+        napi_release_threadsafe_function(*func->func, napi_tsfn_abort);
+        delete func->func;
         delete func;
     }
 
@@ -374,7 +432,7 @@ namespace
             return PyLong_FromLong(i);
     }
 
-    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, bool isSync, bool allowFunc, bool syncJsAndPy)
+    std::pair<PyObject*, bool> convert(napi_env env, napi_value arg, PyInterpreter* interpreter, bool isSync, bool allowFunc, bool syncJsAndPy)
     {
         napi_valuetype type;
         CHECK(napi_typeof(env, arg, &type));
@@ -393,7 +451,7 @@ namespace
             {
                 napi_value value;
                 CHECK(napi_get_element(env, arg, i, &value));
-                PyList_SetItem(list, i, ::convert(env, value, isSync, allowFunc, syncJsAndPy).first);
+                PyList_SetItem(list, i, ::convert(env, value, interpreter, isSync, allowFunc, syncJsAndPy).first);
             }
 
             return { list, false };
@@ -536,9 +594,9 @@ namespace
                     kwargs = true;
                 else
                 {
-                    CPyObject pykey = ::convert(env, key, isSync, allowFunc, syncJsAndPy).first;
+                    CPyObject pykey = ::convert(env, key, interpreter, isSync, allowFunc, syncJsAndPy).first;
 
-                    CPyObject pyvalue = ::convert(env, value, isSync, allowFunc, syncJsAndPy).first;
+                    CPyObject pyvalue = ::convert(env, value, interpreter, isSync, allowFunc, syncJsAndPy).first;
 
                     PyDict_SetItem(dict, *pykey, *pyvalue);
                 }
@@ -550,7 +608,7 @@ namespace
         {
             if (isSync)
             {
-                CPyObject capsule = PyCapsule_New(new SycnCallback{env, arg}, nullptr, capsuleDestructorSync);
+                CPyObject capsule = PyCapsule_New(new SycnCallback{env, arg, interpreter}, nullptr, capsuleDestructorSync);
                 auto function = PyCFunction_New(&mlSync, *capsule);
                 return { function, false };
             }
@@ -561,7 +619,7 @@ namespace
                 napi_value workName;
                 CHECK(napi_create_string_utf8(env, "ThreadSafeCallback", NAPI_AUTO_LENGTH, &workName));
 
-                CPyObject capsule = PyCapsule_New(tsfn, nullptr, capsuleDestructor);
+                CPyObject capsule = PyCapsule_New(new AsyncCallback{tsfn, interpreter}, nullptr, capsuleDestructor);
                 PyObject* function = nullptr;
                 if (syncJsAndPy)
                 {
@@ -590,7 +648,7 @@ std::pair<CPyObject, CPyObject> PyInterpreter::convert(napi_env env, const std::
     paramsVect.reserve(args.size());
     for (auto i=0u;i<args.size();++i)
     {
-        auto cparams = ::convert(env, args[i], isSync, true, m_syncJsAndPy);
+        auto cparams = ::convert(env, args[i], this, isSync, true, m_syncJsAndPy);
         if (!cparams.first)
             throw std::runtime_error("Cannot convert #" + std::to_string(i + 1) + " argument");
 
