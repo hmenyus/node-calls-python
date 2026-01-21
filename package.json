@@ -48,6 +48,6 @@
   },
   "devDependencies": {
     "jest": "^27.5.1",
-    "node-gyp": "^10.1.0"
+    "node-gyp": "^12.1.0"
   }
 }
