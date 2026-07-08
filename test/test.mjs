@@ -1,15 +1,12 @@
-import { interpreter as py } from 'node-calls-python';
-import py2 from 'node-calls-python';
+const { interpreter: py } = require("node-calls-python");
+const { join } = require("path");
 
-import {join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+test("calls python", () => {
+  const pyfile = join(__dirname, "nodetest.py");
+  const pymodule = py.importSync(pyfile);
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+  console.log(py.callSync(pymodule, "hello"));
+  console.log(py.callSync(pymodule, "concatenate", "aaa", "bbb"));
 
-let pyfile = join(__dirname, "nodetest.py");
-
-let pymodule = py.importSync(pyfile);
-
-console.log(py.callSync(pymodule, "hello"));
-console.log(py.callSync(pymodule, "concatenate", "aaa", "bbb"));
+  expect(py.callSync(pymodule, "concatenate", "aaa", "bbb")).toBe("aaabbb");
+});
