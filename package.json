@@ -47,7 +47,7 @@
     "chokidar": "^3.6.0"
   },
   "devDependencies": {
-    "jest": "^27.5.1",
+    "jest": "^30.4.2",
     "node-gyp": "^12.2.0"
   }
 }
