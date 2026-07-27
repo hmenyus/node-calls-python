@@ -556,10 +556,10 @@ namespace
             }
             else
             {
-                auto tsfn = new napi_threadsafe_function;
-
                 napi_value workName;
                 CHECK(napi_create_string_utf8(env, "ThreadSafeCallback", NAPI_AUTO_LENGTH, &workName));
+
+                auto tsfn = new napi_threadsafe_function;
 
                 CPyObject capsule = PyCapsule_New(tsfn, nullptr, capsuleDestructor);
                 PyObject* function = nullptr;

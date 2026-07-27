@@ -105,7 +105,11 @@ namespace nodecallspython
 
         CHECKNULL(napi_set_property(env, result, key, handler));
 
-        CHECKNULL(napi_add_finalizer(env, result, new Handler(py, stringhandler), Handler::Destructor, nullptr, nullptr));
+        auto handlerPtr = std::make_unique<Handler>(py, stringhandler);
+
+        CHECKNULL(napi_add_finalizer(env, result, handlerPtr.get(), Handler::Destructor, nullptr, nullptr));
+
+        handlerPtr.release();
 
         return result;
     }
@@ -370,7 +374,7 @@ namespace nodecallspython
 
                         if (callbackT == napi_function)
                         {
-                            CallTask* task = new CallTask;
+                            auto task = std::make_unique<CallTask>();
                             task->m_py = &(obj->getInterpreter());
 
                             task->m_handler = convertString(env, value);
@@ -387,8 +391,10 @@ namespace nodecallspython
 
                             CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
 
-                            CHECKNULL(napi_create_async_work(env, args[1], optname, CallAsync, CallComplete, task, &task->m_work));
+                            CHECKNULL(napi_create_async_work(env, args[1], optname, CallAsync, CallComplete, task.get(), &task->m_work));
                             CHECKNULL(napi_queue_async_work(env, task->m_work));
+
+                            task.release();
                         }
                     }
                 }
@@ -456,7 +462,7 @@ namespace nodecallspython
 
                         if (callbackT == napi_function)
                         {
-                            ExecTask* task = new ExecTask;
+                            auto task = std::make_unique<ExecTask>();
                             task->m_py = &(obj->getInterpreter());
 
                             task->m_handler = convertString(env, value);
@@ -468,8 +474,10 @@ namespace nodecallspython
 
                             CHECKNULL(napi_create_reference(env, args[argc - 1], 1, &task->m_callback));
 
-                            CHECKNULL(napi_create_async_work(env, args[1], optname, ExecAsync, ExecComplete, task, &task->m_work));
+                            CHECKNULL(napi_create_async_work(env, args[1], optname, ExecAsync, ExecComplete, task.get(), &task->m_work));
                             CHECKNULL(napi_queue_async_work(env, task->m_work));
+
+                            task.release();
                         }
                     }
                 }
@@ -531,7 +539,7 @@ namespace nodecallspython
 
                         if (callbackT == napi_function)
                         {
-                            ImportTask* task = new ImportTask;
+                            auto task = std::make_unique<ImportTask>();
                             task->m_py = &(obj->getInterpreter());
                             task->m_name = convertString(env, args[0]);
                             task->m_allowReimport = allowReimport;
@@ -541,8 +549,10 @@ namespace nodecallspython
 
                             CHECKNULL(napi_create_reference(env, args[2], 1, &task->m_callback));
 
-                            CHECKNULL(napi_create_async_work(env, args[2], optname, ImportAsync, ImportComplete, task, &task->m_work));
+                            CHECKNULL(napi_create_async_work(env, args[2], optname, ImportAsync, ImportComplete, task.get(), &task->m_work));
                             CHECKNULL(napi_queue_async_work(env, task->m_work));
+
+                            task.release();
                         }
                     }
                 }
@@ -559,9 +569,6 @@ namespace nodecallspython
             return nullptr;
         }
 
-    private:
-        std::unique_ptr<PyInterpreter> m_py;
-        
         Python(napi_env env) : m_env(env), m_wrapper(nullptr)
         {
             m_py = std::make_unique<PyInterpreter>();
@@ -572,6 +579,9 @@ namespace nodecallspython
             napi_delete_reference(m_env, m_wrapper);
         }
 
+    private:
+        std::unique_ptr<PyInterpreter> m_py;
+        
         PyInterpreter& getInterpreter() { return *m_py; }
         
         static napi_value create(napi_env env, napi_callback_info info) 
@@ -585,9 +595,11 @@ namespace nodecallspython
                 napi_value jsthis;
                 CHECKNULL(napi_get_cb_info(env, info, nullptr, 0, &jsthis, nullptr));
 
-                Python* obj = new Python(env);
+                auto obj = std::make_unique<Python>(env);
 
-                CHECKNULL(napi_wrap(env, jsthis, reinterpret_cast<void*>(obj), Python::Destructor, nullptr, &obj->m_wrapper));
+                CHECKNULL(napi_wrap(env, jsthis, reinterpret_cast<void*>(obj.get()), Python::Destructor, nullptr, &obj->m_wrapper));
+
+                obj.release();
 
                 return jsthis;
             } 
